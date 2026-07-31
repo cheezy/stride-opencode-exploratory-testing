@@ -2,7 +2,7 @@
 # PowerShell mirror of test-structure.sh.
 #
 # Asserts that every file the plugin needs to function is present: the six
-# core skills, five slash commands, two agents, three fixtures, and the
+# core skills, seven slash commands, two agents, three fixtures, and the
 # top-level docs. This is a content bundle — there is intentionally NO
 # package.json / plugin.json, and this test must never look for one.
 #
@@ -42,7 +42,7 @@ foreach ($skill in 'stride-exploratory-testing','chartering','heuristics','oracl
 
 Write-Host ''
 Write-Host 'Commands'
-foreach ($cmd in 'charter','nightmare-headline','explore','recon','debrief') {
+foreach ($cmd in 'charter','nightmare-headline','explore','recon','debrief','pair','harden') {
     Require-File "commands/$cmd.md" "command /$cmd"
 }
 

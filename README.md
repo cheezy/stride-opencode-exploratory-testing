@@ -149,7 +149,7 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
   lifecycle: the session sheet, Task Breakdown Metrics, the two debrief templates, and
   the `.exploratory/` session-artifact convention (debrief, backlog, coverage outline).
 
-**5 native slash commands:**
+**7 native slash commands:**
 
 - **[`/charter`](commands/charter.md)** — turn a target into a ranked list of
   well-formed charters (via the `charter-generator` agent). Generates only; never runs
@@ -162,11 +162,21 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
   safety boundary, and aggregate everything into one debrief. The debrief is written
   to `.exploratory/sessions/` by default (`--output <path>` redirects that one
   document), and the run also updates the backlog and the coverage outline.
+- **[`/pair`](commands/pair.md)** — the inversion of `/explore`: the **human** drives
+  the application and reports what they saw, while the assistant suggests the next
+  probe and names the lens it came from, judges results with `oracles`, works
+  confirmed defects through RIMGEA, calls out neglected areas unprompted, and keeps
+  the session sheet and parking lot. The assistant never touches the app.
 - **[`/recon`](commands/recon.md)** — a lightweight reconnaissance pass over an
   unfamiliar feature to map the landscape, surface stakeholder questions, and emit
   ranked candidate charters.
 - **[`/debrief`](commands/debrief.md)** — turn raw session notes and findings into a
   stakeholder-ready debrief using the Explored/Found/Unknown and PROOF templates.
+- **[`/harden`](commands/harden.md)** — the path from Explored back to Checked: read a
+  session's oracle-confirmed bugs, detect the project's own test framework rather than
+  assuming one, and draft a regression check per convertible bug from its minimal
+  repro. Reports what it could not convert and why. Drafts stage under
+  `.exploratory/checks/` and are **never run** — it never claims a draft passes.
 
 **2 subagents** (dispatched by the commands via `@mention`, not invoked directly):
 

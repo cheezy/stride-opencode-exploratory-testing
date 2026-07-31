@@ -31,8 +31,10 @@ commands defer to them rather than restating it.
 | `/charter <target> [--risk <context>] [--output <path>]` | Turn a target (a feature, module, requirement, or stated risk) into a ranked list of well-formed charters via the `charter-generator` agent. Generates only — it never runs a session. |
 | `/nightmare-headline <target> [--output <path>]` | Run the Nightmare Headline Game: elicit the catastrophic headlines a feature could produce, pick one, brainstorm its contributing causes, and refine them into ranked charters. |
 | `/explore <target> [--charters <file>] [--timebox <minutes>] [--probes <count>] [--output <path>]` | Plan-and-execute a full session end to end: generate (or load) charters, gather the running-app context, dispatch the `explorer` agent per charter under the safety boundary, and aggregate every session into ONE debrief. `--timebox` is the operator's wall-clock and decides **how many** charters run (one session ≈ 90 min); `--probes` is the agent-native per-session probe budget (default 12, band 8–20) that bounds **each** session. Persists by default to `.exploratory/` (debrief, backlog, coverage outline); `--output` redirects the debrief only. Requires an authorized, non-production target; degrades to plan-only when no running app is available. |
+| `/pair <target or charter> [--timebox <minutes>] [--output <path>]` | The inversion of `/explore`: the **human** drives the application and reports what they saw; you suggest the next probe and name the lens it came from, judge results with `oracles`, work confirmed defects through RIMGEA, call out neglected areas unprompted, and keep the session sheet and parking lot. **You never touch the app** — that is a rule, not a tool limit. Bound by the human's wall clock (60–120 min, default 90), so the sheet carries real elapsed time and real Task Breakdown Metrics. |
 | `/recon <system> [--output <path>]` | A lightweight reconnaissance pass over an unfamiliar or existing system: survey the landscape, surface the questions a stakeholder should answer, and emit ranked candidate charters. Observe-first and non-destructive. |
 | `/debrief [<notes-file>] [--output <path>]` | Turn raw session notes and findings into a stakeholder-ready debrief using the `session` skill's Explored/Found/Unknown and PROOF templates. Reports verifiable facts only; redacts secrets. |
+| `/harden [<session-or-debrief-file>] [--framework <name>] [--output <dir>]` | The path from Explored back to Checked: read a session's oracle-confirmed bugs, **detect** the project's test framework rather than assuming one and say what was detected before writing, then draft a regression check per convertible bug from its `minimal_repro`. Reports what it could not convert and why. Note `--output` names a **directory** here, unlike every other command. Drafts stage under `.exploratory/checks/` and are **never run** — never claim a draft passes. |
 
 ## Skills
 
@@ -63,9 +65,10 @@ and agents do.
 ## Session artifacts
 
 Commands persist their work to `.exploratory/` at the root of **the project under
-test** — `sessions/<timestamp>-<slug>.md` for a run's debrief, `backlog.md` for
-candidate and deferred charters plus parked items, and `coverage.md` for the product
-coverage outline. Note the default install is project-local, so this extension's own
+test** — `sessions/<timestamp>-<slug>.md` for an `/explore` run's debrief or a `/pair`
+session's sheet, `backlog.md` for candidate and deferred charters plus parked items,
+`coverage.md` for the product coverage outline, and `checks/<timestamp>-<slug>/` for
+the regression checks `/harden` drafts (never run). Note the default install is project-local, so this extension's own
 files live in `.opencode/` in that same tree; artifacts go to `.exploratory/`, never
 inside `.opencode/`.
 
@@ -135,7 +138,7 @@ or the Gemini/Codex ports), use these equivalents:
 | `Skill(skill: "x")` | the `skill` tool |
 | `Agent` (subagent dispatch) | `@agent-name` mention |
 
-OpenCode has native slash commands, so the five commands above are first-class — there
+OpenCode has native slash commands, so the seven commands above are first-class — there
 is no need to route them through a skill.
 
 ## How this extension relates to `stride-opencode`

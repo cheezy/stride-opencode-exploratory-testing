@@ -2,7 +2,7 @@
 # Structure smoke test for the stride-opencode-exploratory-testing bundle.
 #
 # Asserts that every file the plugin needs to function is present:
-# the six core skills, five slash commands, two agents, three fixtures,
+# the six core skills, seven slash commands, two agents, three fixtures,
 # and the top-level docs. This is a content bundle — there is intentionally
 # NO package.json / plugin.json, and this test must never look for one.
 #
@@ -41,7 +41,7 @@ for skill in stride-exploratory-testing chartering heuristics oracles session bu
 done
 
 printf '\nCommands\n'
-for cmd in charter nightmare-headline explore recon debrief; do
+for cmd in charter nightmare-headline explore recon debrief pair harden; do
   require_file "commands/${cmd}.md" "command /${cmd}"
 done
 
