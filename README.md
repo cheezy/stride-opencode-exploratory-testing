@@ -125,7 +125,7 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
 
 ## What's in this extension
 
-**5 skills** (the reusable knowledge the commands and agents draw on):
+**6 skills** (the reusable knowledge the commands and agents draw on):
 
 - **[`stride-exploratory-testing`](skills/stride-exploratory-testing/SKILL.md)** —
   the orchestrator. Routes any exploratory-testing request to the right skill,
@@ -141,8 +141,13 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
   is a defect: Never/Always invariants, consistency oracles (history, comparable
   products, standards, claims, user expectations, purpose), and the HTSM
   quality-criteria checklist.
+- **[`bug-advocacy`](skills/bug-advocacy/SKILL.md)** — what happens once a result is
+  judged a defect: Cem Kaner's RIMGEA follow-through (Replicate, Isolate, Maximize,
+  Generalize, Externalize, And say it clearly), a severity rubric with explicit
+  per-level criteria, and the dispassionate-tone rule.
 - **[`session`](skills/session/SKILL.md)** — the Session-Based Test Management (SBTM)
-  lifecycle: the session sheet, Task Breakdown Metrics, and the two debrief templates.
+  lifecycle: the session sheet, Task Breakdown Metrics, the two debrief templates, and
+  the `.exploratory/` session-artifact convention (debrief, backlog, coverage outline).
 
 **5 native slash commands:**
 
@@ -154,7 +159,9 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
   refine them into ranked charters.
 - **[`/explore`](commands/explore.md)** — plan-and-execute a full session end to end:
   generate or load charters, dispatch the `explorer` agent per charter under the
-  safety boundary, and aggregate everything into one debrief.
+  safety boundary, and aggregate everything into one debrief. The debrief is written
+  to `.exploratory/sessions/` by default (`--output <path>` redirects that one
+  document), and the run also updates the backlog and the coverage outline.
 - **[`/recon`](commands/recon.md)** — a lightweight reconnaissance pass over an
   unfamiliar feature to map the landscape, surface stakeholder questions, and emit
   ranked candidate charters.
@@ -244,6 +251,9 @@ the primary sources:
 
 - **Exploratory testing as a discipline** — Cem Kaner, who coined the term and framed
   it as *simultaneous* test design, execution, and learning.
+- **Bug Advocacy (RIMGEA)** — Cem Kaner — Replicate, Isolate, Maximize, Generalize,
+  Externalize, And say it clearly: the follow-through that turns a found bug into a
+  fixed one, and the doctrine the `bug-advocacy` skill encodes.
 - **Charter-based, practical exploratory testing** — Elisabeth Hendrickson,
   *Explore It!* — the source of the `Explore <target> with <resources> to discover
   <information>` charter template this extension builds on.

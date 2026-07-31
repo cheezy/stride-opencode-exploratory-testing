@@ -1,7 +1,7 @@
 # Structure smoke test for the stride-opencode-exploratory-testing bundle.
 # PowerShell mirror of test-structure.sh.
 #
-# Asserts that every file the plugin needs to function is present: the five
+# Asserts that every file the plugin needs to function is present: the six
 # core skills, five slash commands, two agents, three fixtures, and the
 # top-level docs. This is a content bundle — there is intentionally NO
 # package.json / plugin.json, and this test must never look for one.
@@ -36,7 +36,7 @@ Write-Host "plugin root: $PluginRoot"
 Write-Host ''
 
 Write-Host 'Skills'
-foreach ($skill in 'stride-exploratory-testing','chartering','heuristics','oracles','session') {
+foreach ($skill in 'stride-exploratory-testing','chartering','heuristics','oracles','session','bug-advocacy') {
     Require-File "skills/$skill/SKILL.md" "skill $skill"
 }
 

@@ -30,7 +30,7 @@ commands defer to them rather than restating it.
 |---------|-------------|
 | `/charter <target> [--risk <context>] [--output <path>]` | Turn a target (a feature, module, requirement, or stated risk) into a ranked list of well-formed charters via the `charter-generator` agent. Generates only — it never runs a session. |
 | `/nightmare-headline <target> [--output <path>]` | Run the Nightmare Headline Game: elicit the catastrophic headlines a feature could produce, pick one, brainstorm its contributing causes, and refine them into ranked charters. |
-| `/explore <target> [--charters <file>] [--timebox <minutes>] [--probes <count>]` | Plan-and-execute a full session end to end: generate (or load) charters, gather the running-app context, dispatch the `explorer` agent per charter under the safety boundary, and aggregate every session into ONE debrief. `--timebox` is the operator's wall-clock and decides **how many** charters run (one session ≈ 90 min); `--probes` is the agent-native per-session probe budget (default 12, band 8–20) that bounds **each** session. Requires an authorized, non-production target; degrades to plan-only when no running app is available. |
+| `/explore <target> [--charters <file>] [--timebox <minutes>] [--probes <count>] [--output <path>]` | Plan-and-execute a full session end to end: generate (or load) charters, gather the running-app context, dispatch the `explorer` agent per charter under the safety boundary, and aggregate every session into ONE debrief. `--timebox` is the operator's wall-clock and decides **how many** charters run (one session ≈ 90 min); `--probes` is the agent-native per-session probe budget (default 12, band 8–20) that bounds **each** session. Persists by default to `.exploratory/` (debrief, backlog, coverage outline); `--output` redirects the debrief only. Requires an authorized, non-production target; degrades to plan-only when no running app is available. |
 | `/recon <system> [--output <path>]` | A lightweight reconnaissance pass over an unfamiliar or existing system: survey the landscape, surface the questions a stakeholder should answer, and emit ranked candidate charters. Observe-first and non-destructive. |
 | `/debrief [<notes-file>] [--output <path>]` | Turn raw session notes and findings into a stakeholder-ready debrief using the `session` skill's Explored/Found/Unknown and PROOF templates. Reports verifiable facts only; redacts secrets. |
 
@@ -53,9 +53,26 @@ and agents do.
   duplicating the catalog.
 - **`oracles`** — how to decide whether an observed result is a defect: Never/Always
   invariants, consistency oracles, and the HTSM quality-criteria checklist.
+- **`bug-advocacy`** — what to do once a result is judged a defect: RIMGEA (Replicate,
+  Isolate, Maximize, Generalize, Externalize, And say it clearly), the severity rubric
+  with explicit per-level criteria, and the dispassionate-tone rule.
 - **`session`** — the SBTM lifecycle: the session sheet, Task Breakdown Metrics, the
-  off-charter parking lot, and both debrief templates (Explored/Found/Unknown and
-  Jonathan Bach's PROOF).
+  off-charter parking lot, both debrief templates (Explored/Found/Unknown and
+  Jonathan Bach's PROOF), and the `.exploratory/` session-artifact convention.
+
+## Session artifacts
+
+Commands persist their work to `.exploratory/` at the root of **the project under
+test** — `sessions/<timestamp>-<slug>.md` for a run's debrief, `backlog.md` for
+candidate and deferred charters plus parked items, and `coverage.md` for the product
+coverage outline. Note the default install is project-local, so this extension's own
+files live in `.opencode/` in that same tree; artifacts go to `.exploratory/`, never
+inside `.opencode/`.
+
+Add `.exploratory/` to the project's `.gitignore` — the files quote observed
+application output and are working material, not source. A missing artifact is an
+empty starting state, never an error: the first run in a new project is the run that
+creates the tree.
 
 ## Custom Agents
 
