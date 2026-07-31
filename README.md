@@ -116,7 +116,7 @@ its depth lives:
 | Engine | What it does | Home |
 |---|---|---|
 | **Charters** | Give a session its mission: what to explore, with what resources, to discover what information. | `chartering`, `/charter`, `/nightmare-headline` |
-| **Heuristics** | Idea generators — cheat sheets, Tours, and SFDPOT — for when you're stuck. | `heuristics` |
+| **Heuristics** | Idea generators — cheat sheets, Tours, and SFDIPOT — for when you're stuck. | `heuristics` |
 | **Variables** | The factors you can deliberately vary (data, state, sequence, environment). | `heuristics` (variable catalog) |
 | **Oracles** | How you decide something is actually *wrong*. | `oracles` |
 | **Observation** | Noticing what the system actually did — not what you expected. | `session`, `explorer` |
@@ -132,7 +132,7 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
   command, or agent, and holds the "Tested = Checked + Explored" doctrine.
 - **[`chartering`](skills/chartering/SKILL.md)** — how to frame a mission and write a
   well-formed charter (`Explore <target> with <resources> to discover <information>`),
-  rank candidates with SFDPOT and the Nightmare Headline Game, and reframe a
+  rank candidates with SFDIPOT and the Nightmare Headline Game, and reframe a
   "charter" that's really a test case.
 - **[`heuristics`](skills/heuristics/SKILL.md)** — the extension's single source of
   truth for concrete test-idea lenses: general and web cheat sheets, a
@@ -164,10 +164,10 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
 **2 subagents** (dispatched by the commands via `@mention`, not invoked directly):
 
 - **[`charter-generator`](agents/charter-generator.md)** — turns a target (plus
-  optional risk context) into a ranked list of charters via an SFDPOT sweep,
+  optional risk context) into a ranked list of charters via an SFDIPOT sweep,
   charter-source mining, and the Nightmare Headline Game. Read-only; generates only,
   never executes.
-- **[`explorer`](agents/explorer.md)** — runs a single time-boxed session against ONE
+- **[`explorer`](agents/explorer.md)** — runs a single budgeted session against ONE
   charter: designs probes with `heuristics`, judges results with `oracles`, records an
   SBTM session sheet, and returns structured findings — all under the absolute safety
   boundary.
@@ -196,11 +196,16 @@ A first session in OpenCode, end to end (after installing per the section above)
    Stuck on *what could go wrong*? Run `/nightmare-headline the CSV import` first and
    let the worst-case headlines drive the charters.
 
-2. **Explore.** Hand a charter to a full, time-boxed session:
+2. **Explore.** Hand a charter to a full session:
 
    ```
    /explore the CSV receipt import --timebox 90
    ```
+
+   `--timebox` is **your** clock: it decides how many charters get funded (one
+   session ≈ 90 minutes). Each explorer session itself is bounded by an
+   agent-native **probe budget** — 12 probes by default, `--probes` to change —
+   because an agent has no honest way to measure minutes.
 
    The `explorer` agent probes the feature using the `heuristics` lenses, judges each
    result with the `oracles`, and keeps a running SBTM session sheet — staying inside
@@ -248,7 +253,7 @@ the primary sources:
   Jonathan Bach.
 - **Tours** (Business / Historical / Tourist / Entertainment / Hotel / Seedy
   districts) — James Whittaker, *Exploratory Software Testing*.
-- **The Heuristic Test Strategy Model (HTSM)** — James Bach — including the SFDPOT
+- **The Heuristic Test Strategy Model (HTSM)** — James Bach — including the SFDIPOT
   coverage lens and the quality-criteria checklist the `oracles` skill uses.
 
 ## How this relates to `stride-opencode`

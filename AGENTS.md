@@ -30,7 +30,7 @@ commands defer to them rather than restating it.
 |---------|-------------|
 | `/charter <target> [--risk <context>] [--output <path>]` | Turn a target (a feature, module, requirement, or stated risk) into a ranked list of well-formed charters via the `charter-generator` agent. Generates only — it never runs a session. |
 | `/nightmare-headline <target> [--output <path>]` | Run the Nightmare Headline Game: elicit the catastrophic headlines a feature could produce, pick one, brainstorm its contributing causes, and refine them into ranked charters. |
-| `/explore <target> [--charters <file>] [--timebox <minutes>]` | Plan-and-execute a full session end to end: generate (or load) charters, gather the running-app context, dispatch the `explorer` agent per charter under the safety boundary, and aggregate every session into ONE debrief. Requires an authorized, non-production target; degrades to plan-only when no running app is available. |
+| `/explore <target> [--charters <file>] [--timebox <minutes>] [--probes <count>]` | Plan-and-execute a full session end to end: generate (or load) charters, gather the running-app context, dispatch the `explorer` agent per charter under the safety boundary, and aggregate every session into ONE debrief. `--timebox` is the operator's wall-clock and decides **how many** charters run (one session ≈ 90 min); `--probes` is the agent-native per-session probe budget (default 12, band 8–20) that bounds **each** session. Requires an authorized, non-production target; degrades to plan-only when no running app is available. |
 | `/recon <system> [--output <path>]` | A lightweight reconnaissance pass over an unfamiliar or existing system: survey the landscape, surface the questions a stakeholder should answer, and emit ranked candidate charters. Observe-first and non-destructive. |
 | `/debrief [<notes-file>] [--output <path>]` | Turn raw session notes and findings into a stakeholder-ready debrief using the `session` skill's Explored/Found/Unknown and PROOF templates. Reports verifiable facts only; redacts secrets. |
 
@@ -46,7 +46,7 @@ and agents do.
   slash command.
 - **`chartering`** — how to frame a mission and write a well-formed charter
   (`Explore <target> with <resources> to discover <information>`), rank candidates with
-  SFDPOT and the Nightmare Headline Game, and reframe a "charter" that is really a check.
+  SFDIPOT and the Nightmare Headline Game, and reframe a "charter" that is really a check.
 - **`heuristics`** — the extension's **single source of truth** for concrete test-idea
   lenses: general and web cheat sheets, the variable-spotting catalog, and Whittaker's
   Tours grouped by district. Every other skill and agent links here rather than
@@ -64,10 +64,10 @@ directly from a user prompt. They live at `agents/<name>.md` (OpenCode subagent 
 `mode: subagent`, a per-tool `tools` map).
 
 - **charter-generator** — turns a target (plus optional risk context) into a ranked
-  list of charters via an SFDPOT sweep, charter-source mining, and the Nightmare
+  list of charters via an SFDIPOT sweep, charter-source mining, and the Nightmare
   Headline Game. Read-only (`read`/`grep`/`glob`); it generates charters and never runs
   a session. Dispatched by `/charter`, `/nightmare-headline`, `/recon`, and `/explore`.
-- **explorer** — runs a single time-boxed session against ONE charter: designs probes
+- **explorer** — runs a single budgeted session against ONE charter: designs probes
   with `heuristics`, judges results with `oracles`, records an SBTM session sheet, and
   returns structured findings. It exercises a running app (`read`/`grep`/`glob`/`bash`/
   `webfetch`) under an **absolute safety boundary** — authorized, non-production
