@@ -5,6 +5,15 @@ All notable changes to the Stride Exploratory Testing extension for OpenCode are
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-08-21
+
+Documentation routing only — no skill body, agent, or command behavior changed.
+
+### Fixed
+
+- **Three routing sites in the orchestrator skill pointed SFDIPOT at `heuristics`, where none of it lives** (D211). The lens table belongs to `chartering`. As shipped, an agent told to enumerate a product's coverage surface systematically was sent to the wrong skill and had to invent the model from its acronym. Fixed at each site: the Engines table qualifies its destination in the parenthetical style the Variables row already uses, the routing table gets a dedicated SFDIPOT row aimed at `chartering` while the "get unstuck" row narrows to cheat sheets and Tours, and the lenses list names `chartering` as the catalog.
+- **The README's engines table carried the same wrong pointer** and is corrected alongside it. It is the human-facing copy of the map, so leaving it stale would have kept the defect visible after the skill was right.
+
 ## [0.2.0] - 2026-07-31
 
 Ports the six exploratory-testing enhancements from the Claude Code original's G391 into this extension. The headline changes: two new commands (`/pair` and `/harden`), a sixth skill (`bug-advocacy`), a persisted `.exploratory/` artifact layer, the SFDPOT → SFDIPOT correction, and the removal of two metrics the explorer agent could never honestly measure.
