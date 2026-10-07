@@ -282,6 +282,21 @@ context, together with the bug's `summary`, `observed` and `minimal_repro` (and 
   required lines a verify dispatch returns `not_verified`. Without the variable nothing
   changes.
 
+### Explorer reading rule and the test-account pointer
+
+`agents/explorer.md` has a *Reading files* section after its card: find the lines with
+`grep` first, read a bounded range with `read`'s `offset` and `limit` (or `sed -n`
+through `bash`), read each file, range or skill once per session unless the file has
+changed since, and inspect binary files through `bash` rather than `read`.
+
+For anything that dispatches `explorer` directly: send **at most one** test-account
+pointer, on its own line in the environment context, before any text you mark as
+untrusted. Two or more pointers anywhere in the dispatch, the charter included, name
+nothing, and so does one placed inside or after untrusted text — the explorer then
+leaves every credential file closed. `/explore` already sends a single test-accounts
+line. The fixed dispatch template that places these lines belongs to the Step 6.5
+dispatch in `stride-opencode`, not to this extension.
+
 ## Quick start
 
 A first session in OpenCode, end to end (after installing per the section above):
