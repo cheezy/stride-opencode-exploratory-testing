@@ -23,9 +23,13 @@
 # self-counted budget, the pass | fail | not_verified verdict that is never a
 # pass when not_verified, the verify: summary line, and that the card carries
 # none of it.
+# It pins /harden's unattended path: no question when a bug source and
+# --framework are both given, the reserved --framework none, the stop on an
+# unreadable source, the explorer report file as a source, no AskUserQuestion,
+# and the drafting prohibitions intact.
 #
-# Offline and read-only: it stats files and reads agents/explorer.md and
-# skills/bug-advocacy/SKILL.md as text with grep/awk, and the JSON fixture
+# Offline and read-only: it stats files and reads agents/explorer.md,
+# commands/harden.md and skills/bug-advocacy/SKILL.md as text with grep/awk, and the JSON fixture
 # with python3 as data — it never executes their contents and never makes a
 # network call. No jq. Resolves the plugin root
 # relative to this script's own location, so it works from any CWD.
@@ -615,6 +619,59 @@ if [ -f "$EXPLORER" ]; then
   fi
 else
   nope "verify-mode checks need agents/explorer.md"
+fi
+
+# --- /harden unattended path ------------------------------------------------
+#
+# W2323 (port of W2269): Stride's Step 5.6 runs /harden with nobody present,
+# passing the explorer's persisted report as BUGS_SOURCE and an explicit
+# --framework. With both supplied the command never asks a question; an
+# unreadable source stops in every mode; --framework none is reserved for the
+# none-detected path; and no drafting prohibition loosens. OpenCode has no
+# AskUserQuestion tool, so naming one here would be a porting error.
+printf '\n/harden unattended path\n'
+
+HARDEN_CMD="${PLUGIN_ROOT}/commands/harden.md"
+if [ -f "$HARDEN_CMD" ]; then
+  MISSING_HU=$(absent_needles "$HARDEN_CMD" commands/harden.md \
+    '**Unattended invocation: when `BUGS_SOURCE` is non-empty and `--framework` was supplied, this command never asks the user a question.**' \
+    'the one reserved value `none`, which means *draft nothing runnable*' \
+    '[--framework <name>|none]' \
+    'This is also the path `--framework none` takes.' \
+    'given but not found' \
+    '(unless `--framework` was supplied, which skips this question)' \
+    'unless `--framework` was supplied: then use it and name the runner it overrode' \
+    '**Zero convertible bugs**: a normal finish' \
+    'is a stop, not a menu' \
+    'It never falls back to `.exploratory/sessions/`' \
+    '`external_directory` permission and nobody is present to grant it' \
+    'the JSON the explorer writes at `EXPLORATORY_REPORT_PATH`' \
+    'never the bounded summary that came back with it' \
+    'An orchestrator that passes it is acting for the operator' \
+    'Without both inputs, the interactive path above is unchanged.')
+  if [ -z "$MISSING_HU" ]; then
+    ok "harden.md documents the unattended rule, --framework none and the unreadable-source stop"
+  else
+    nope "harden.md unattended-path rules missing:${MISSING_HU}"
+  fi
+
+  MISSING_HU_PRO=$(absent_needles "$HARDEN_CMD" commands/harden.md \
+    'not even one that appears verbatim in the repro' \
+    'Never point a check at a real host' \
+    'Nothing is ever overwritten')
+  if [ -z "$MISSING_HU_PRO" ]; then
+    ok "harden.md keeps its credential, real-host and never-overwrite prohibitions"
+  else
+    nope "harden.md drafting prohibitions missing:${MISSING_HU_PRO}"
+  fi
+
+  if grep -qF -e 'AskUserQuestion' "$HARDEN_CMD"; then
+    nope "harden.md names AskUserQuestion, a tool OpenCode does not have"
+  else
+    ok "harden.md names no AskUserQuestion tool"
+  fi
+else
+  nope "unattended-path checks need commands/harden.md"
 fi
 
 # --- Explorer output contract ----------------------------------------------

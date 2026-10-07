@@ -177,6 +177,9 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
   assuming one, and draft a regression check per convertible bug from its minimal
   repro. Reports what it could not convert and why. Drafts stage under
   `.exploratory/checks/` and are **never run** — it never claims a draft passes.
+  Given both a bug source and `--framework` (a framework name, or `none` to draft
+  nothing runnable), it runs unattended and never asks a question; a bug source it
+  cannot read stops the run rather than falling back to another session.
 
 **2 subagents** (dispatched by the commands via `@mention`, not invoked directly):
 
@@ -239,6 +242,9 @@ EXPLORATORY_REPORT_PATH=/absolute/path/to/project/.stride/.exploratory-W123-r1.j
   debrief.
 - **The report holds application output.** Treat it as data, keep it out of version
   control, and delete it when you are done with it.
+- **Hardening from it.** Pass that same report file to `/harden` as its bug source,
+  with `--framework <name>` or `--framework none`, and `/harden` runs without asking
+  anything.
 
 **Why `bash` and not a write tool.** OpenCode's `permission.edit` accepts a
 glob-to-action map (`PermissionRuleConfig` in `@opencode-ai/sdk` 1.14.19's
