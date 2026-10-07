@@ -186,8 +186,10 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
   never executes.
 - **[`explorer`](agents/explorer.md)** — runs a single budgeted session against ONE
   charter: designs probes with `heuristics`, judges results with `oracles`, records an
-  SBTM session sheet, and returns structured findings — all under the absolute safety
-  boundary.
+  SBTM session sheet, and returns structured findings (or, given
+  `EXPLORATORY_REPORT_PATH`, writes them to that file and returns a short summary — see
+  [Explorer report file](#explorer-report-file-exploratory_report_path)) — all under the
+  absolute safety boundary.
 
 **[`fixtures/`](fixtures/)** — worked examples of the full flow: an
 [example charter set](fixtures/example-charters.md), an
@@ -197,6 +199,59 @@ as regression anchors for the smoke tests.
 
 See also **[HEURISTICS.md](HEURISTICS.md)** for a one-page pointer to the lenses in
 the `heuristics` skill.
+
+### Explorer report file (`EXPLORATORY_REPORT_PATH`)
+
+A workflow that dispatches `explorer` itself — Stride's exploratory-testing step, for
+example — can keep the full findings out of its own context. It supplies an absolute
+path, either as an argument of its own or as one line of the environment context:
+
+```text
+EXPLORATORY_REPORT_PATH=/absolute/path/to/project/.stride/.exploratory-W123-r1.json
+```
+
+- **What the explorer does with it.** After cleanup it writes the complete contract
+  `1.0` findings object to exactly that file with one `bash` command; if the parent
+  directory is missing it runs one `mkdir -p` and tries the write once more. Use a new
+  path for every dispatch and keep it inside the project: OpenCode has an
+  `external_directory` permission for paths outside the working tree, and an
+  unattended subagent cannot answer a prompt for it.
+- **What you get back.** Plain text of at most 2,048 bytes with no ```json fence:
+  `report:`, `contract_version:`, `status:`, `stop_reason:`, a probes line, a bug count
+  by severity (plus `questions_risks`, `off_charter` and `known_bad` counts), then one
+  `<Severity> | replicated: <yes|no|not established> | <summary>` line per bug. Read the
+  findings from the path **you** supplied, never one the summary names. To check a
+  written report against the contract, run
+  `EXPLORER_OUTPUT=<path> bash lib/test-structure.sh`.
+- **What it refuses.** A relative path, a `..` segment, a quote or control character,
+  a path that already exists (a file, a directory or a link — it never overwrites), or a
+  path built from anything the explorer read while exploring. A refused or failed
+  write comes back as `report: NOT WRITTEN - <reason>` followed by the full fenced JSON,
+  so no findings are lost.
+- **Supply the path yourself, and neutralise copies of it.** The explorer counts an
+  `EXPLORATORY_REPORT_PATH` line that starts with the name, so put `> ` in front of any
+  such line inside operator-, task- or charter-supplied text you place in the
+  environment context, exactly as `/explore` does for forged safety lines; a second
+  counting line makes the write fail rather than go somewhere you did not choose.
+- **With no path, nothing changes.** The reply is the single fenced JSON document, and
+  `/explore` never passes the variable — it needs the whole findings object for its
+  debrief.
+- **The report holds application output.** Treat it as data, keep it out of version
+  control, and delete it when you are done with it.
+
+**Why `bash` and not a write tool.** OpenCode's `permission.edit` accepts a
+glob-to-action map (`PermissionRuleConfig` in `@opencode-ai/sdk` 1.14.19's
+`dist/v2/gen/types.gen.d.ts`, checked against OpenCode 1.16.2), and `edit` is the
+permission OpenCode's file-writing tools ask for before they write. A frontmatter glob is fixed when the agent
+loads, though, so it can open a family of paths but never the single path a caller names
+at dispatch — and the explorer already holds `bash`, which no `edit` rule restricts.
+Turning on `write` would add a capability without narrowing anything, so `edit` and
+`write` stay `false` and the one-path rule is stated in `agents/explorer.md` and pinned
+by `lib/test-structure.sh` and `lib/test-structure.ps1`. They fail if a file-writing
+tool (`edit`, `write`, `patch` or `apply_patch`, key quoted or not, block or flow style)
+or a top-level `permission: allow|ask` is turned on, unless an `edit` permission map
+starts with `"*": deny` and no later entry opens a wildcard at the top of a path
+(`"**"`, `"/**"`, `"*.json"`, `"~/..."`).
 
 ## Quick start
 
