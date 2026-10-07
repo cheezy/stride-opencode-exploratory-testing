@@ -32,9 +32,9 @@ Two working rules:
 | **Some, None, All** | For selections, filters, permissions, bulk actions: choose some, none, and all. |
 | **CRUD** | Exercise Create, Read, Update, and Delete on each entity — and combinations (delete then read, update a deleted item). |
 | **Follow the Data** | Create a datum, then read / update / delete it from every place it surfaces. Verify it stays consistent end to end. |
-| **Interrupt** | Cancel, close, log off, restart, kill the process, lose the network, or let it time out **mid-operation**. |
+| **Interrupt** | Cut an operation off **mid-operation**, by in-app means only: cancel it, close the tab, sign out, leave the page, or let a request time out. Stop or restart only a process you launched yourself; leave every other process, the network and the host alone. |
 | **Reverse** | Do the steps in the opposite order; undo then redo; navigate backward through a wizard. |
-| **Starve** | Deny resources: low memory or disk, slow CPU, throttled or dropped network, an exhausted quota or rate limit. |
+| **Starve** | Run the app short of resources, by in-app means only: exhaust an app-level quota or rate limit with throwaway test data, or lower a limit using a setting inside the app, or a feature flag you are permitted to flip in the test environment you were handed, then set it back. Leave operating-system, memory, disk, CPU and network resources untouched, and never touch another host. |
 | **Violate Format** | Feed values that break the expected format — wrong type, encoding, delimiter, length, or schema. |
 | **Beginning, Middle, End** | Act at the start, the middle, and the end of a sequence, range, document, or list — boundaries live at the seams. |
 | **Centralize / Decentralize** | Put everything in one place (one giant record, one account) vs. spread thin across many. |
@@ -110,13 +110,15 @@ A **Tour** is a themed walkthrough of an area, biased toward one kind of risk �
 - **Couch Potato Tour** — do as little as possible: accept every default, leave fields blank, click straight through.
 
 ### Seedy District — the mean, nasty tours
-- **Saboteur Tour** — actively try to break it: pull the network, corrupt the input, kill the process at the worst moment.
+- **Saboteur Tour** — set out to break it, with in-app means only: corrupt the input, cancel or walk away from a flow at the worst moment, burn through an app-level quota with disposable test data. Never cut the network, stop a process someone else started, or touch the operating system or any other host.
 - **Antisocial Tour** — do the opposite of what's expected — the least-likely inputs and out-of-order actions.
 - **Obsessive-Compulsive Tour** — repeat the same action over and over; redo, resubmit, re-enter; do it again immediately.
 
 ## Safety of security-flavored heuristics
 
 The injection and Saboteur-style lenses are for **authorized testing of a system you own or are permitted to test** — never for attacking third parties. Keep example payloads clearly illustrative and non-destructive; this catalog contains no live exploit code targeting external systems, and neither should the probes you derive from it.
+
+**Interrupt, Starve and the Saboteur Tour stay within in-app means.** That means cancelling through the UI or API, closing the tab, logging off, letting a request time out, throttling through an app setting or feature flag you are allowed to change in the environment you were given (never shared state, and always set back afterwards), or draining an app-level quota using throwaway test data. Never kill a process you did not start, never alter operating-system or network settings or any other system resource, and stay off every host outside the authorised target.
 
 ## Handing off
 
