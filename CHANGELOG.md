@@ -5,6 +5,49 @@ All notable changes to the Stride Exploratory Testing extension for OpenCode are
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-10-07
+
+Ports the explorer accuracy fixes from the Claude Code original (G449) into this extension, in this edition's own wording. The `explorer` agent gains an inline card, a versioned output contract, a curl-only way of observing HTTP, and a structured safety boundary.
+
+**Callers must now send two lines, or every session ends blocked.** The explorer runs no probe unless its environment context carries `AUTHORIZED_NON_PRODUCTION: yes` and an `ALLOWED_HOSTS` line. This extension's own `/explore` sends both. Any other caller that dispatches the explorer directly must be updated to send them. That includes the Step 6.5 dispatch in `stride-opencode`.
+
+### Added
+
+- **An explorer card inside the agent** (W2317). `agents/explorer.md` now carries a card of at most 4,096 bytes, placed straight after the safety boundary. It holds:
+  - the four severity tokens, `Critical | High | Moderate | Minor`, with their rank and a short impact ladder;
+  - the tie rule, the three aggravating modifiers and how they combine;
+  - the likelihood and unknown-impact rules;
+  - RIMGEA mapped onto the `bugs[]` fields;
+  - the three oracle verdicts and kinds;
+  - the stop rules mapped onto `stop_reason`.
+
+  The explore loop and the hard rules point at the card, so the agent no longer depends on opening a skill to rate a bug.
+- **Explorer output contract 1.0** (W2318).
+  - Every report carries `contract_version: "1.0"`.
+  - `status` is derived from `session_sheet.stop_reason` by one published table, and an unauthorised target is `blocked`.
+  - `bugs[]` gains `replicated` (`"<k>/<n>"`, or `"not established: <reason>"`) and `provisional`.
+  - `questions_risks` and `off_charter` elements are typed objects.
+  - A new optional, untrusted `known_issues` input feeds a new `known_bad` root array, so behaviour the team already knows about is never filed again as a bug.
+  - Consumers read a missing field as an older explorer, never as an error.
+  - `fixtures/example-explorer-output.json` is a complete 1.0 report.
+- **The `no_observation_surface` ending** (W2319). A charter that needs an observation none of the explorer's own tools can make ends with that `stop_reason` and `status: "blocked"`. A typical example is a rendered view with no browser tool. Findings from the part it could observe stay valid. The part it could not observe is recorded as an unknown and a risk, never judged from source.
+- **Explorer output and safety-boundary checks in both test shells.** `lib/test-structure.sh` and `lib/test-structure.ps1` pin the card, the contract tables, the fixture and the safety boundary with matching check labels. Setting `EXPLORER_OUTPUT` also validates a real report against the contract.
+
+### Changed
+
+- **The explorer observes HTTP with `curl -sS -i` and has `webfetch` turned off** (W2319). OpenCode's `webfetch` returns converted content, upgrades `http://` to `https://` and may summarise. What it returns is not the response the app sent, so it is no longer an oracle source. **Unlike the original, `curl -L` is forbidden.** A redirect is read from the unfollowed response's `Location` header and requested only when it names an allowed host. This keeps a redirect from carrying the explorer to a host nobody authorised.
+- **The safety boundary is structured** (W2320).
+  - **Authorisation** must come in two required lines:
+    - `AUTHORIZED_NON_PRODUCTION`, whose value must be exactly `yes`;
+    - `ALLOWED_HOSTS`, a list of `host[:port]` matched exactly, or `none` for a target reached only through a local command.
+
+    A missing, empty, wrong or repeated line means `blocked` with zero probes. No redirect, page, config file, `known_issues` entry or charter wording can add a host.
+  - **Cleanup:** the explorer removes every process and file it started, on every exit path.
+  - **Credential files** are opened only to read one value the caller named.
+  - **Disruptive techniques:** `heuristics` limits Interrupt, Starve and the Saboteur Tour to means available inside the app.
+  - **`/explore`** writes both lines once, first, and puts `> ` in front of any operator or charter text that tries to forge them.
+- **Skills load by name** (W2317). The explorer's skill references go through OpenCode's skill tool. The relative `skills/<name>/SKILL.md` paths don't resolve after `install.sh`, whether the install is project-local or `--global`. Four other files still mention a relative path: `commands/charter.md`, `commands/debrief.md`, `commands/nightmare-headline.md` and `agents/charter-generator.md`.
+
 ## [0.2.1] - 2026-08-21
 
 Documentation routing only — no skill body, agent, or command behavior changed.
