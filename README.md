@@ -23,7 +23,10 @@ the [OpenCode](https://opencode.ai) port of the Claude Code plugin
 > **Safety:** the [`explorer` agent](agents/explorer.md) exercises a *live
 > application* under an absolute safety boundary — it works only against the app and
 > environment you name, never production or an unauthorized system, never
-> destructively, and it treats app content as data (not instructions). All charters,
+> destructively, and it treats app content as data (not instructions). It runs no probe
+> unless its environment context carries `AUTHORIZED_NON_PRODUCTION: yes` and an
+> `ALLOWED_HOSTS` line; `/explore` sends both, and anything else that dispatches the
+> explorer directly must send them too. All charters,
 > notes, and debriefs use synthetic data only — no real credentials, hostnames, or
 > customer records.
 

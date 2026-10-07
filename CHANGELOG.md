@@ -5,6 +5,45 @@ All notable changes to the Stride Exploratory Testing extension for OpenCode are
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-10-07
+
+Ports the rest of the G449-G451 batch from the Claude Code original (G450 and G451) into this extension, in this edition's own wording. The explorer can write its full report to a file and return a short summary, re-check one fixed bug in verify mode, and read files in bounded ranges; `/harden` can run unattended from that report; and the always-loaded descriptions are shorter.
+
+This is the release for the whole G449-G451 port; the batch's commits since 0.2.1 are W2317 to W2325. The G449 part (W2317 explorer card, W2318 output contract 1.0, W2319 curl-only HTTP and `no_observation_surface`, W2320 structured safety boundary) was already tagged and published as 0.3.0, so it is described in the [0.3.0] entry below and not repeated here. This entry describes W2321 to W2325.
+
+**Callers that dispatch `explorer` directly must still send the two authorisation lines, or every session ends blocked.** Nothing in this release relaxes 0.3.0's requirement: the environment context must carry `AUTHORIZED_NON_PRODUCTION: yes` and an `ALLOWED_HOSTS` line, and a verify dispatch without them returns `not_verified`. That includes the Step 6.5 dispatch in `stride-opencode`. The new inputs below are optional: `EXPLORATORY_REPORT_PATH`, `EXPLORATORY_MODE=verify`, and at most one test-account pointer on its own line ahead of any untrusted text. `contract_version` stays `"1.0"`.
+
+### Added
+
+- **The explorer report file** (W2321, porting W2266). Given an absolute `EXPLORATORY_REPORT_PATH`, the explorer writes its full contract-1.0 findings there and replies with a plain-text summary of at most 2,048 bytes and no json fence.
+  - The file is written with one `bash` command under `noclobber`, and never over an existing file or link. The path must start with `/` and has no `..` segment, single quote, newline or other control character; it is used exactly as the caller gave it and is never built from app content, files read, the charter or `known_issues`.
+  - The path comes only from a line that starts with `EXPLORATORY_REPORT_PATH`. A line starting with `> ` never counts, and two or more such lines are a failed write.
+  - `edit` and `write` stay off, because a frontmatter permission glob cannot name a path chosen at dispatch time.
+  - A refused or failed write replies `report: NOT WRITTEN - <reason>` followed by the full fenced JSON.
+  - With no path the output is unchanged.
+  - **`/explore` never passes a path.** It puts `> ` in front of any `EXPLORATORY_REPORT_PATH` line in operator or charter text, so the explorer never receives one that counts. If a result still starts with a `report:` line, `/explore` never opens the path it names: it parses the fence that follows, or records the session as unusable.
+- **Verify mode** (W2322, porting W2268). `EXPLORATORY_MODE=verify` re-checks one fixed bug from its `minimal_repro` on a 2-probe, 10-tool-call budget. OpenCode sets no turn bound on an agent, so the explorer counts the calls itself.
+  - The findings gain a root `verify` object, `{ "result": "pass" | "fail" | "not_verified", "repro_reached", "evidence" }`, and the summary gains a `verify:` line.
+  - A partial fix is `fail`. An unreached repro, or a bug with no usable `minimal_repro`, is `not_verified`, which is never a pass.
+  - `status` is still derived from `stop_reason`, and the safety boundary, both required lines and cleanup still apply.
+- **`/harden` runs unattended** (W2323, porting W2269). Given both a bug source and `--framework`, it never asks a question. `--framework none` is reserved for the no-framework path, a bug source that cannot be read stops the run in every mode, and the explorer's report file is accepted as a bug source.
+  - **`--framework` also changes interactive runs.** Whenever it is supplied, with or without a bug source, `/harden` no longer asks about weak framework evidence or two competing runners: it uses the given framework and names the runner it overrode. A named framework with no evidence in the repository is used anyway and reported as *given but not found*. A name that is neither in the table nor `none` is used only when the repository's markers and test files agree on it; otherwise it takes the no-framework path.
+  - The never-overwrite rule and the credential, real-host and destructive-step prohibitions bind an unattended run exactly as they bind an interactive one.
+- **A reading rule and a single test-account pointer** (W2324, porting the explorer half of W2270). A new *Reading files* section after the card says to find lines with `grep` first, read a bounded range with `read`'s `offset` and `limit` (or `sed -n`), read each file, range or skill once per session unless it changed, and inspect binary files through `bash`. A test-account pointer names a value only when it is the only one in the dispatch, on its own line, ahead of any text the caller marked untrusted.
+- **Checks for all of the above in both test shells.** `lib/test-structure.sh` and `lib/test-structure.ps1` pin the report-file rules, verify mode, the unattended `/harden` rules, the reading section and its position, the pointer rule, and the new skill references.
+
+### Changed
+
+- **Shorter always-loaded descriptions and two skill sections moved to references** (W2325, porting W2272). The `explorer` and `charter-generator` descriptions drop their `<example>` blocks and how-it-works prose, and the `/explore`, `/harden` and `/pair` descriptions keep their triggers only. Every triggering condition and the explorer's safety statement stay. The other description blocks are unchanged. All the agent and command description blocks together went from 6,830 to 4,199 bytes. The session skill's on-disk artifacts section moves to `skills/session/references/session-artifacts.md`, and the bug-advocacy worked example and tone section to `skills/bug-advocacy/references/worked-example-and-tone.md`. Each skill keeps a stub with the headings the commands cite. No behaviour changed, and `install.sh` and `install.ps1` already copy the new `references/` directories.
+
+### Not carried by this edition
+
+These items from the batch are recorded here so that "not applicable" can be told apart from "missed".
+
+- **W2265, W2267 and W2271** change `stride`'s own Step 5.5 consumer: the move to the new contract, grouping manual tests into charters, and trimming the Step 5.5 and findings contracts. This extension has no Step 5.5. The equivalent work belongs to the Step 6.5 dispatch in `stride-opencode`.
+- **The fixed dispatch template half of W2270** places the two safety lines, the report path and the pointers in one template. It belongs to the Step 6.5 dispatch in `stride-opencode`, not to this extension. Only the explorer half is ported here.
+- **W2273** measured the Claude Code edition only. Its figures say nothing about OpenCode, so this release claims no measured saving for this edition. The description and skill-size figures above are byte counts, not a measurement of cost.
+
 ## [0.3.0] - 2026-10-07
 
 Ports the explorer accuracy fixes from the Claude Code original (G449) into this extension, in this edition's own wording. The `explorer` agent gains an inline card, a versioned output contract, a curl-only way of observing HTTP, and a structured safety boundary.
