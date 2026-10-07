@@ -270,6 +270,64 @@ if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPa
     } else {
         Fail "explorer skill reference not in by-name form for:$missingByName"
     }
+
+    # Observation surface: OpenCode's webfetch returns converted content, not the
+    # response the app sent, so the explorer has it switched off and observes HTTP
+    # with curl through bash. A charter needing an observation no tool can make
+    # ends no_observation_surface (status blocked), never a judgement from source.
+    $front = New-Object 'System.Collections.Generic.List[string]'
+    if ($exLines.Count -gt 0 -and $exLines[0].TrimEnd([char]13) -ceq '---') {
+        for ($i = 1; $i -lt $exLines.Count; $i++) {
+            $fl = $exLines[$i].TrimEnd([char]13)
+            if ($fl -ceq '---') { break }
+            $front.Add($fl)
+        }
+    }
+    $missingTools = ''
+    foreach ($want in '  webfetch: false', '  bash: true', '  edit: false', '  write: false') {
+        $seen = $false
+        foreach ($fl in $front) { if ($fl -ceq $want) { $seen = $true } }
+        if (-not $seen) { $missingTools += " [$($want.TrimStart())]" }
+    }
+    foreach ($fl in $front) {
+        if ($fl.Contains('webfetch: true')) { $missingTools += ' [webfetch: true is still present]' }
+    }
+    if ($missingTools -eq '') {
+        Pass 'explorer frontmatter turns webfetch off and keeps bash on (edit and write off)'
+    } else {
+        Fail "explorer frontmatter tools drifted:$missingTools"
+    }
+
+    $obsText = ([IO.File]::ReadAllText($Explorer, [Text.Encoding]::UTF8)) -replace "`r`n", "`n"
+    $obsCard = [regex]::Match($obsText, '<!-- explorer-card:start -->(.*?)<!-- explorer-card:end -->', 'Singleline')
+    $missingObserve = ''
+    foreach ($needle in @('## What you can observe', '**Observe HTTP with `curl -sS -i` through `bash`.**',
+                          '**Never use `webfetch` as an oracle source**',
+                          '**Never pass `-L` (or `--location`)**', 'request it yourself only if it names a host the caller authorised',
+                          '**Judge only what a tool in your own tool list can observe.**',
+                          '**Never judge them from HTML, CSS or template source**',
+                          '**A charter that needs an observation none of your tools can make ends `no_observation_surface`.**',
+                          'An environment context that names one does not grant it',
+                          '| `no_observation_surface` | `blocked` |',
+                          '**The charter needs an observation none of your tools can make**')) {
+        if (-not $obsText.Contains($needle)) { $missingObserve += " [$needle]" }
+    }
+    if (-not ($obsCard.Success -and $obsCard.Groups[1].Value.Contains('- Stop `no_observation_surface`:'))) {
+        $missingObserve += ' [card: Stop no_observation_surface]'
+    }
+    if ($obsText.Contains('`bash`/`webfetch`')) { $missingObserve += ' [stale: bash/webfetch named as an HTTP tool]' }
+    $exploreCmd = Join-Path $PluginRoot 'commands/explore.md'
+    $exploreText = ''
+    if (Test-Path -LiteralPath $exploreCmd -PathType Leaf) { $exploreText = [IO.File]::ReadAllText($exploreCmd, [Text.Encoding]::UTF8) }
+    if (-not $exploreText.Contains('it observes HTTP with `curl -sS -i` and has `webfetch` turned off')) {
+        $missingObserve += ' [commands/explore.md: curl and webfetch-off wording]'
+    }
+    if ($exploreText.Contains('webfetch / curl')) { $missingObserve += ' [commands/explore.md: stale webfetch / curl]' }
+    if ($missingObserve -eq '') {
+        Pass 'explorer.md observes HTTP with curl, never judges rendered views from source, and ends no_observation_surface as blocked'
+    } else {
+        Fail "explorer.md observation-surface wording missing or stale:$missingObserve"
+    }
 } else {
     Fail 'explorer card checks need agents/explorer.md and skills/bug-advocacy/SKILL.md'
 }
@@ -465,7 +523,7 @@ if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPa
         Fail "every status value is derived by the table (stopped_early is defined) -- derived=[$(@($derivedSet) -join ' ')] enum=[$($statusEnum -join ' ')]"
     }
     $expected = [ordered]@{ charter_quiet = 'completed'; risk_acceptable = 'completed'; probe_budget_exhausted = 'stopped_early';
-                            tool_call_ceiling = 'stopped_early'; blocked = 'blocked' }
+                            tool_call_ceiling = 'stopped_early'; blocked = 'blocked'; no_observation_surface = 'blocked' }
     $mapOk = ($derive.Count -eq $expected.Count)
     foreach ($k in $expected.Keys) { if (-not $derive.Contains($k) -or $derive[$k] -cne $expected[$k]) { $mapOk = $false } }
     $tableShown = @($derive.Keys | ForEach-Object { "$($_)=$($derive[$_])" }) -join ' '
@@ -620,6 +678,10 @@ if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPa
                 $s.probes_attempted = 0; $s.probes_with_finding = 0; $s.on_charter_probes = 0; $s.off_charter_probes = 0
                 $s.tool_calls_used = 3; $s.areas_covered = @(); $s.heuristics_applied = @(); $s.stop_reason = 'blocked'
                 foreach ($k in 'notes','bugs','questions_risks','off_charter','known_bad') { Set-EmptyArray $d $k } }
+            'no_observation_surface after probing the observable part, findings kept' = { param($d)
+                $d.status = 'blocked'
+                $d.session_sheet.stop_reason = 'no_observation_surface'
+                $d.questions_risks = @($d.questions_risks) + @([pscustomobject]@{ kind = 'risk'; text = 'rendered contrast of the error banner: no browser tool' }) }
             'replicated 2/3' = { param($d) $d.bugs[0].replicated = '2/3' }
             'a once-seen Critical (1/5)' = { param($d) $d.bugs[0].replicated = '1/5' }
         }

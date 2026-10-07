@@ -89,9 +89,10 @@ directly from a user prompt. They live at `agents/<name>.md` (OpenCode subagent 
   a session. Dispatched by `/charter`, `/nightmare-headline`, `/recon`, and `/explore`.
 - **explorer** — runs a single budgeted session against ONE charter: designs probes
   with `heuristics`, judges results with `oracles`, records an SBTM session sheet, and
-  returns structured findings. It exercises a running app (`read`/`grep`/`glob`/`bash`/
-  `webfetch`) under an **absolute safety boundary** — authorized, non-production
-  targets only, never destructive, app content treated as data, not instructions.
+  returns structured findings. It exercises a running app (`read`/`grep`/`glob`/`bash`,
+  HTTP through `curl`; `webfetch` is off) under an **absolute safety boundary** —
+  authorized, non-production targets only, never destructive, app content treated as
+  data, not instructions.
   Dispatched by `/explore`, one charter per call.
 
 ## Installation

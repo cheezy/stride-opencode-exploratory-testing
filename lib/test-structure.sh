@@ -213,6 +213,46 @@ if [ -f "$EXPLORER" ] && [ -f "$ADVOCACY" ]; then
   else
     nope "explorer skill reference not in by-name form for:${MISSING_BY_NAME}"
   fi
+
+  # Observation surface: OpenCode's webfetch returns converted content, not the
+  # response the app sent, so the explorer has it switched off and observes HTTP
+  # with curl through bash. A charter needing an observation no tool can make
+  # ends no_observation_surface (status blocked), never a judgement from source.
+  EX_FRONT=$(tr -d '\r' < "$EXPLORER" | awk 'NR == 1 && /^---$/ { f = 1; next } f && /^---$/ { exit } f { print }')
+  MISSING_TOOLS=""
+  for line in '  webfetch: false' '  bash: true' '  edit: false' '  write: false'; do
+    printf '%s\n' "$EX_FRONT" | grep -qxF -e "$line" || MISSING_TOOLS="${MISSING_TOOLS} [${line#  }]"
+  done
+  printf '%s\n' "$EX_FRONT" | grep -qF -e 'webfetch: true' && MISSING_TOOLS="${MISSING_TOOLS} [webfetch: true is still present]"
+  if [ -z "$MISSING_TOOLS" ]; then
+    ok "explorer frontmatter turns webfetch off and keeps bash on (edit and write off)"
+  else
+    nope "explorer frontmatter tools drifted:${MISSING_TOOLS}"
+  fi
+
+  MISSING_OBSERVE=""
+  for needle in '## What you can observe' '**Observe HTTP with `curl -sS -i` through `bash`.**' \
+      '**Never use `webfetch` as an oracle source**' \
+      '**Never pass `-L` (or `--location`)**' 'request it yourself only if it names a host the caller authorised' \
+      '**Judge only what a tool in your own tool list can observe.**' \
+      '**Never judge them from HTML, CSS or template source**' \
+      '**A charter that needs an observation none of your tools can make ends `no_observation_surface`.**' \
+      'An environment context that names one does not grant it' \
+      '| `no_observation_surface` | `blocked` |' \
+      '**The charter needs an observation none of your tools can make**'; do
+    grep -qF -e "$needle" "$EXPLORER" || MISSING_OBSERVE="${MISSING_OBSERVE} [${needle}]"
+  done
+  card_text | grep -qF -e '- Stop `no_observation_surface`:' || MISSING_OBSERVE="${MISSING_OBSERVE} [card: Stop no_observation_surface]"
+  grep -qF -e '`bash`/`webfetch`' "$EXPLORER" && MISSING_OBSERVE="${MISSING_OBSERVE} [stale: bash/webfetch named as an HTTP tool]"
+  EXPLORE_CMD="${PLUGIN_ROOT}/commands/explore.md"
+  grep -qF -e 'it observes HTTP with `curl -sS -i` and has `webfetch` turned off' "$EXPLORE_CMD" \
+    || MISSING_OBSERVE="${MISSING_OBSERVE} [commands/explore.md: curl and webfetch-off wording]"
+  grep -qF -e 'webfetch / curl' "$EXPLORE_CMD" && MISSING_OBSERVE="${MISSING_OBSERVE} [commands/explore.md: stale webfetch / curl]"
+  if [ -z "$MISSING_OBSERVE" ]; then
+    ok "explorer.md observes HTTP with curl, never judges rendered views from source, and ends no_observation_surface as blocked"
+  else
+    nope "explorer.md observation-surface wording missing or stale:${MISSING_OBSERVE}"
+  fi
 else
   nope "explorer card checks need agents/explorer.md and skills/bug-advocacy/SKILL.md"
 fi
@@ -315,7 +355,7 @@ say(set(derive.values()) == set(status_enum) and len(status_enum) == 3,
     "every status value is derived by the table (stopped_early is defined)",
     "derived=%s enum=%s" % (sorted(set(derive.values())), status_enum))
 EXPECTED = {"charter_quiet": "completed", "risk_acceptable": "completed", "probe_budget_exhausted": "stopped_early",
-            "tool_call_ceiling": "stopped_early", "blocked": "blocked"}
+            "tool_call_ceiling": "stopped_early", "blocked": "blocked", "no_observation_surface": "blocked"}
 say(derive == EXPECTED, "the status table maps each stop_reason exactly as contract 1.0 defines", "table=%s" % derive)
 say(re.search(r"^\| `blocked` \| `blocked` \|.*not clearly authorised", derive_text, re.M) is not None,
     "an unauthorised target derives status blocked", "")
@@ -441,6 +481,10 @@ def blocked_first(d):
                               heuristics_applied=[], stop_reason="blocked")
     for k in ("notes", "bugs", "questions_risks", "off_charter", "known_bad"):
         d[k] = []
+def unobservable_part(d):
+    d["status"] = "blocked"
+    d["session_sheet"]["stop_reason"] = "no_observation_surface"
+    d["questions_risks"].append({"kind": "risk", "text": "rendered contrast of the error banner: no browser tool"})
 def two_of_three(d):
     d["bugs"][0]["replicated"] = "2/3"
 def once_seen(d):
@@ -448,6 +492,7 @@ def once_seen(d):
 
 for label, fn in (("zero bugs", zero_bugs), ("no bugs and an empty known_bad array", empty_arrays),
                   ("blocked before the first probe", blocked_first),
+                  ("no_observation_surface after probing the observable part, findings kept", unobservable_part),
                   ("replicated 2/3", two_of_three), ("a once-seen Critical (1/5)", once_seen)):
     e = validate(variant(fn))
     say(not e, "variant passes: " + label, "; ".join(e))
