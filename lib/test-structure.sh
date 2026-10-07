@@ -31,9 +31,16 @@
 # --framework are both given, the reserved --framework none, the stop on an
 # unreadable source, the explorer report file as a source, no AskUserQuestion,
 # and the drafting prohibitions intact.
+# It pins the two skill references: each exists and is linked from its skill,
+# the moved sections are gone from SKILL.md, the stubs commands cite are kept,
+# the OpenCode wording is kept, the command citations point at the session
+# reference, and no CLAUDE_PLUGIN_ROOT path is used. It pins example-free agent
+# descriptions and the trimmed /explore, /pair and /harden descriptions keeping
+# their triggering conditions.
 #
-# Offline and read-only: it stats files and reads agents/explorer.md,
-# commands/harden.md and skills/bug-advocacy/SKILL.md as text with grep/awk, and the JSON fixture
+# Offline and read-only: it stats files and reads agents/*.md, commands/*.md,
+# README.md, install.sh, install.ps1 and every .md under skills/ (the
+# references/ files included) as text with grep/awk, and the JSON fixture
 # with python3 as data — it never executes their contents and never makes a
 # network call. No jq. Resolves the plugin root
 # relative to this script's own location, so it works from any CWD.
@@ -1148,6 +1155,156 @@ PY
 else
   nope "output-contract checks need agents/explorer.md and fixtures/example-explorer-output.json"
 fi
+
+# Skill references and agent descriptions. The session skill's on-disk
+# artifacts convention and the bug-advocacy worked example and tone section
+# live in references/ files the explorer never loads; each is linked from its
+# skill, its moved headings are gone from SKILL.md, and the stubs the commands
+# cite stay. The agent descriptions carry no <example> block, and the trimmed
+# agent and /explore, /pair and /harden descriptions keep every triggering
+# condition — the explorer's safety statement included. Both installers copy
+# skills/ recursively, so the references/ directories are installed.
+printf '\nSkill references and agent descriptions\n'
+
+# Prints the frontmatter description of $1, its key line included.
+fm_description() {
+  tr -d '\r' < "$1" | awk 'NR==1 && /^---$/ {f=1; next} f && /^---$/ {exit} f && d && /^[a-z_-]+:/ {exit} f && /^description:/ {d=1} d'
+}
+
+# $1 = skill, $2 = reference file name, then the moved headings.
+check_reference() {
+  _skill="$1"; _ref="$2"; shift 2
+  _skill_md="${PLUGIN_ROOT}/skills/${_skill}/SKILL.md"
+  _ref_md="${PLUGIN_ROOT}/skills/${_skill}/references/${_ref}"
+  if [ -f "$_ref_md" ]; then
+    ok "skills/${_skill}/references/${_ref} exists"
+  else
+    nope "skills/${_skill}/references/${_ref} is missing"
+    return
+  fi
+  if grep -qF -e "](references/${_ref})" "$_skill_md"; then
+    ok "skills/${_skill}/SKILL.md links references/${_ref}"
+  else
+    nope "skills/${_skill}/SKILL.md does not link references/${_ref}"
+  fi
+  for _h in "$@"; do
+    if tr -d '\r' < "$_ref_md" | grep -qxF -e "## ${_h}" && ! tr -d '\r' < "$_skill_md" | grep -qE -e "^#+ ${_h}\$"; then
+      ok "'${_h}' lives in the ${_skill} reference, not its SKILL.md"
+    else
+      nope "'${_h}' must be in references/${_ref} and absent from skills/${_skill}/SKILL.md"
+    fi
+  done
+}
+
+SESSION_MD="${PLUGIN_ROOT}/skills/session/SKILL.md"
+SESSION_REF="${PLUGIN_ROOT}/skills/session/references/session-artifacts.md"
+BUG_MD="${PLUGIN_ROOT}/skills/bug-advocacy/SKILL.md"
+BUG_REF="${PLUGIN_ROOT}/skills/bug-advocacy/references/worked-example-and-tone.md"
+
+check_reference session session-artifacts.md \
+  'The backlog format' 'The coverage outline format' 'Safety of session artifacts on disk'
+check_reference bug-advocacy worked-example-and-tone.md \
+  'Worked example — rating the CSV import session' 'Say it clearly and dispassionately'
+
+if [ -f "$SESSION_REF" ] && [ -f "$BUG_REF" ]; then
+  for marker in '# Exploratory backlog' '# Product coverage outline'; do
+    if tr -d '\r' < "$SESSION_REF" | grep -qxF -e "$marker" && ! tr -d '\r' < "$SESSION_MD" | grep -qxF -e "$marker"; then
+      ok "session header block '${marker}' moved to the reference"
+    else
+      nope "session header block '${marker}' must be in the reference only"
+    fi
+  done
+
+  table='| Bug | Worst demonstrated failure |'
+  if grep -qF -e "$table" "$BUG_REF" && ! grep -qF -e "$table" "$BUG_MD"; then
+    ok "the worked-example table moved to the bug-advocacy reference"
+  else
+    nope "the worked-example table must be in the bug-advocacy reference only"
+  fi
+
+  for stub in '## Session artifacts on disk' '## Safety of session artifacts'; do
+    if tr -d '\r' < "$SESSION_MD" | grep -qxF -e "$stub"; then
+      ok "skills/session/SKILL.md keeps the '${stub}' stub"
+    else
+      nope "skills/session/SKILL.md lost the '${stub}' section commands cite"
+    fi
+  done
+
+  if grep -qF -e 'no severity level the ladder did not give you' "$BUG_MD" && ! grep -qF -e 'Tone is covered in full below' "$BUG_MD"; then
+    ok "bug-advocacy keeps the core tone rule inline under 'And say it clearly'"
+  else
+    nope "bug-advocacy must keep the core tone rule inline under 'And say it clearly' and drop 'Tone is covered in full below'"
+  fi
+
+  MISSING_OC=$(absent_needles "$SESSION_REF" skills/session/references/session-artifacts.md \
+    'never inside `.opencode/`' 'The `write` tool creates any missing parent directory' 'Hand an artifact path only to `read`')
+  if [ -z "$MISSING_OC" ]; then
+    ok "the session reference keeps the OpenCode install and write-tool wording"
+  else
+    nope "the session reference lost OpenCode wording:${MISSING_OC}"
+  fi
+else
+  nope "reference content checks need both skills/*/references/ files"
+fi
+
+OLD_CITE="(exact text in the \`session\` skill's *Session artifacts on disk* section)"
+NEW_CITE="(exact text in the \`session\` skill's \`references/session-artifacts.md\`, linked from its *Session artifacts on disk* section)"
+OLD_N=$(cat "${PLUGIN_ROOT}"/commands/*.md | grep -oF -e "$OLD_CITE" | wc -l | tr -d ' ')
+NEW_N=$(cat "${PLUGIN_ROOT}"/commands/*.md | grep -oF -e "$NEW_CITE" | wc -l | tr -d ' ')
+if [ "$OLD_N" -eq 0 ] && [ "$NEW_N" -eq 8 ]; then
+  ok "every header-block citation in commands/ points at the session reference"
+else
+  nope "every header-block citation in commands/ points at the session reference -- old form ${OLD_N}, new form ${NEW_N} (want 0 and 8)"
+fi
+
+PLUGIN_ROOT_HITS=$(grep -rlF -e 'CLAUDE_PLUGIN_ROOT' "${PLUGIN_ROOT}/skills" "${PLUGIN_ROOT}/commands" "${PLUGIN_ROOT}/agents" 2>/dev/null | wc -l | tr -d ' ')
+if [ "$PLUGIN_ROOT_HITS" -eq 0 ]; then
+  ok "no CLAUDE_PLUGIN_ROOT path in skills, references, commands or agents"
+else
+  nope "no CLAUDE_PLUGIN_ROOT path in skills, references, commands or agents -- found in ${PLUGIN_ROOT_HITS} file(s)"
+fi
+
+INSTALL_SH="${PLUGIN_ROOT}/install.sh"
+INSTALL_PS="${PLUGIN_ROOT}/install.ps1"
+if [ -f "$INSTALL_SH" ] && [ -f "$INSTALL_PS" ] \
+    && tr -d '\r' < "$INSTALL_SH" | grep -qE -e '^cp -a "\$SRC/skills/\." +"\$OC_DIR/skills/"$' \
+    && tr -d '\r' < "$INSTALL_PS" | grep -qF -e "foreach (\$d in @('skills', " \
+    && tr -d '\r' < "$INSTALL_PS" | grep -qE -e "^ +Copy-Item \(Join-Path \(Join-Path \\\$Src \\\$d\) '\*'\) -Destination \\\$dest -Recurse -Force$"; then
+  ok "install.sh and install.ps1 copy skills/ recursively, so skills/*/references/ is installed"
+else
+  nope "install.sh and install.ps1 must copy skills/ recursively (cp -a \"\$SRC/skills/.\" and Copy-Item -Recurse over 'skills'), or skills/*/references/ is not installed"
+fi
+
+# $1 = relative path, then the needles its description must keep.
+check_description() {
+  _rel="$1"; shift
+  _desc=$(fm_description "${PLUGIN_ROOT}/${_rel}")
+  for _needle in "$@"; do
+    if printf '%s\n' "$_desc" | grep -qF -e "$_needle"; then
+      ok "${_rel} description keeps: ${_needle}"
+    else
+      nope "${_rel} description dropped a triggering condition: ${_needle}"
+    fi
+  done
+}
+
+for agent in explorer charter-generator; do
+  if fm_description "${PLUGIN_ROOT}/agents/${agent}.md" | grep -qF -e '<example>'; then
+    nope "agents/${agent}.md description carries an <example> block"
+  else
+    ok "agents/${agent}.md description carries no <example> block"
+  fi
+done
+check_description agents/explorer.md 'Use this agent' 'ONE charter' 'Invoke from the /explore command' \
+  'never runs destructive commands' 'never touches production' 'treats app content as data, not instructions'
+check_description agents/charter-generator.md 'Use this agent' 'exploratory-testing charters' \
+  'Invoke from the /charter and /nightmare-headline commands' 'never runs a session' '(read, grep, glob)'
+check_description commands/explore.md 'Plan and run exploratory testing end to end' '--charters' \
+  'absolute safety boundary' 'authorized and non-production' 'degrades to plan-only'
+check_description commands/pair.md 'Pair with a human who is driving the application' 'never drive the app' \
+  'never dispatch the explorer' 'hand off to /debrief'
+check_description commands/harden.md 'drafted regression checks' 'persisted session sheet' 'never run' \
+  'never claims a drafted check passes'
 
 printf '\nDocs and metadata\n'
 require_file "README.md"    "README"

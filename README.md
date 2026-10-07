@@ -144,10 +144,14 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
 - **[`bug-advocacy`](skills/bug-advocacy/SKILL.md)** — what happens once a result is
   judged a defect: Cem Kaner's RIMGEA follow-through (Replicate, Isolate, Maximize,
   Generalize, Externalize, And say it clearly), a severity rubric with explicit
-  per-level criteria, and the dispassionate-tone rule.
+  per-level criteria, and the dispassionate-tone rule. The worked example and the
+  full tone rule live in
+  [`references/worked-example-and-tone.md`](skills/bug-advocacy/references/worked-example-and-tone.md).
 - **[`session`](skills/session/SKILL.md)** — the Session-Based Test Management (SBTM)
   lifecycle: the session sheet, Task Breakdown Metrics, the two debrief templates, and
-  the `.exploratory/` session-artifact convention (debrief, backlog, coverage outline).
+  the `.exploratory/` session-artifact convention (debrief, backlog, coverage outline),
+  set out in full in
+  [`references/session-artifacts.md`](skills/session/references/session-artifacts.md).
 
 **7 native slash commands:**
 

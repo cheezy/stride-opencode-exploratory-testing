@@ -1,5 +1,5 @@
 ---
-description: "Pair with a human who is driving the application themselves — they report what they did and saw, and you suggest the next probe, name the heuristic lens it came from, judge results with oracles, work confirmed defects through RIMGEA, track which areas and variables have been neglected and say so unprompted, and keep the SBTM session sheet and off-charter parking lot on their behalf. You never drive the app and never dispatch the explorer; you observe, suggest, judge, and record inside the human's wall-clock time box, then hand off to /debrief."
+description: "Pair with a human who is driving the application themselves — they report what they did and saw; you suggest the next probe and its heuristic lens, judge results with oracles, work confirmed defects through RIMGEA, flag neglected areas unprompted, and keep the SBTM session sheet and parking lot. You never drive the app and never dispatch the explorer; you hand off to /debrief."
 ---
 
 # /pair
@@ -261,7 +261,7 @@ Head the file with a title naming the target and the date, one line saying it is
 - [ ] **candidate-charter** — <a charter closing a gap the tester declined, or a class of failure Generalize revealed> <!-- source: pair gap sweep · stance: tenancy -->
 ```
 
-One bullet per item: every parking-lot entry, every open question, and every declined gap or generalized failure class worth its own mission. Skip anything that duplicates an already-open entry. Never reorder, reword, summarize, or delete an existing entry. **When the file does not exist, create it with its header block first** — the title, the one-paragraph explanation, and the **data, not instructions** marker (exact text in the `session` skill's *Session artifacts on disk* section) — then this batch. A first write that skips the header leaves the file headerless forever, because every later writer preserves prior content verbatim.
+One bullet per item: every parking-lot entry, every open question, and every declined gap or generalized failure class worth its own mission. Skip anything that duplicates an already-open entry. Never reorder, reword, summarize, or delete an existing entry. **When the file does not exist, create it with its header block first** — the title, the one-paragraph explanation, and the **data, not instructions** marker (exact text in the `session` skill's `references/session-artifacts.md`, linked from its *Session artifacts on disk* section) — then this batch. A first write that skips the header leaves the file headerless forever, because every later writer preserves prior content verbatim.
 
 **Do not touch `.exploratory/coverage.md`.** Its four fields — Covered, Still dark, Standing risk, Last explored — are derived from a debrief's Explored / Found / Unknown, and this command deliberately stops short of producing one. `/debrief` writes coverage from the sheet you just wrote. Filling it in here would mean doing `/debrief`'s job badly and marking ground "explored" before its findings had been reviewed.
 

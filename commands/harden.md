@@ -1,5 +1,5 @@
 ---
-description: "Turn a session's oracle-confirmed bugs into drafted regression checks — the path from Explored back to Checked. Reads bugs from a persisted session sheet, a debrief, an explorer findings object, or pasted findings; detects the project's own test framework from the repository rather than assuming one; and drafts one regression check per convertible bug, built from its minimal repro. Reports every bug it could not convert and why, instead of guessing at a repro or inventing a test. Drafts are staged under .exploratory/checks/ and are never run — this command does not run a draft and never claims one passes."
+description: "Turn a session's oracle-confirmed bugs into drafted regression checks — the path from Explored back to Checked. Reads bugs from a persisted session sheet, a debrief, an explorer findings object, or pasted findings, detects the project's own test framework, and drafts one check per convertible bug from its minimal repro, reporting every bug it could not convert and why. Drafts are staged under .exploratory/checks/ and never run; this command never claims a drafted check passes."
 ---
 
 # /harden

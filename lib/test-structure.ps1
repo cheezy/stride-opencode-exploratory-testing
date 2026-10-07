@@ -31,9 +31,16 @@
 # --framework are both given, the reserved --framework none, the stop on an
 # unreadable source, the explorer report file as a source, no AskUserQuestion,
 # and the drafting prohibitions intact.
+# It pins the two skill references: each exists and is linked from its skill,
+# the moved sections are gone from SKILL.md, the stubs commands cite are kept,
+# the OpenCode wording is kept, the command citations point at the session
+# reference, and no CLAUDE_PLUGIN_ROOT path is used. It pins example-free agent
+# descriptions and the trimmed /explore, /pair and /harden descriptions keeping
+# their triggering conditions.
 #
-# Offline and read-only: it tests file existence and reads agents/explorer.md,
-# commands/harden.md and skills/bug-advocacy/SKILL.md as text with .NET string and regex calls,
+# Offline and read-only: it tests file existence and reads agents/*.md,
+# commands/*.md, README.md, install.sh, install.ps1 and every .md under skills/
+# (the references/ files included) as text with .NET string and regex calls,
 # and the JSON fixture with ConvertFrom-Json as data — it never executes their
 # contents and never makes a network call. Resolves
 # the plugin root relative to this script's own location, so it works from
@@ -1372,6 +1379,196 @@ if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPa
 } else {
     Fail 'output-contract checks need agents/explorer.md and fixtures/example-explorer-output.json'
 }
+
+# Skill references and agent descriptions. The session skill's on-disk
+# artifacts convention and the bug-advocacy worked example and tone section
+# live in references/ files the explorer never loads; each is linked from its
+# skill, its moved headings are gone from SKILL.md, and the stubs the commands
+# cite stay. The agent descriptions carry no <example> block, and the trimmed
+# agent and /explore, /pair and /harden descriptions keep every triggering
+# condition - the explorer's safety statement included. Both installers copy
+# skills/ recursively, so the references/ directories are installed.
+Write-Host ''
+Write-Host 'Skill references and agent descriptions'
+
+function Read-Normalized([string]$path) {
+    return ([IO.File]::ReadAllText($path, [Text.Encoding]::UTF8)) -replace "`r`n", "`n"
+}
+
+# Returns the frontmatter description of $path, its key line included.
+function Get-FmDescription([string]$path) {
+    $out = New-Object 'System.Collections.Generic.List[string]'
+    $lines = Read-Lines $path
+    if ($lines.Count -eq 0 -or $lines[0].TrimEnd("`r") -ne '---') { return '' }
+    $inDesc = $false
+    for ($i = 1; $i -lt $lines.Count; $i++) {
+        $l = $lines[$i].TrimEnd("`r")
+        if ($l -eq '---') { break }
+        if ($inDesc -and $l -cmatch '^[a-z_-]+:') { break }
+        if ($l -cmatch '^description:') { $inDesc = $true }
+        if ($inDesc) { $out.Add($l) }
+    }
+    return ($out -join "`n")
+}
+
+function Test-HasLine([string]$text, [string]$line) {
+    return [regex]::IsMatch($text, '(?m)^' + [regex]::Escape($line) + '$')
+}
+
+function Test-HasHeading([string]$text, [string]$heading) {
+    return [regex]::IsMatch($text, '(?m)^#+ ' + [regex]::Escape($heading) + '$')
+}
+
+function Test-Reference([string]$skill, [string]$ref, [string[]]$headings) {
+    $skillMd = Join-Path $PluginRoot "skills/$skill/SKILL.md"
+    $refMd   = Join-Path $PluginRoot "skills/$skill/references/$ref"
+    if (Test-Path -LiteralPath $refMd -PathType Leaf) {
+        Pass "skills/$skill/references/$ref exists"
+    } else {
+        Fail "skills/$skill/references/$ref is missing"
+        return
+    }
+    $skillText = Read-Normalized $skillMd
+    $refText   = Read-Normalized $refMd
+    if ($skillText.Contains("](references/$ref)")) {
+        Pass "skills/$skill/SKILL.md links references/$ref"
+    } else {
+        Fail "skills/$skill/SKILL.md does not link references/$ref"
+    }
+    foreach ($h in $headings) {
+        if ((Test-HasLine $refText "## $h") -and -not (Test-HasHeading $skillText $h)) {
+            Pass "'$h' lives in the $skill reference, not its SKILL.md"
+        } else {
+            Fail "'$h' must be in references/$ref and absent from skills/$skill/SKILL.md"
+        }
+    }
+}
+
+$sessionMd  = Join-Path $PluginRoot 'skills/session/SKILL.md'
+$sessionRef = Join-Path $PluginRoot 'skills/session/references/session-artifacts.md'
+$bugMd      = Join-Path $PluginRoot 'skills/bug-advocacy/SKILL.md'
+$bugRef     = Join-Path $PluginRoot 'skills/bug-advocacy/references/worked-example-and-tone.md'
+
+Test-Reference 'session' 'session-artifacts.md' @('The backlog format', 'The coverage outline format', 'Safety of session artifacts on disk')
+Test-Reference 'bug-advocacy' 'worked-example-and-tone.md' @(('Worked example ' + $EmDash + ' rating the CSV import session'), 'Say it clearly and dispassionately')
+
+if ((Test-Path -LiteralPath $sessionRef -PathType Leaf) -and (Test-Path -LiteralPath $bugRef -PathType Leaf)) {
+    $sessionText    = Read-Normalized $sessionMd
+    $sessionRefText = Read-Normalized $sessionRef
+    $bugText        = Read-Normalized $bugMd
+    $bugRefText     = Read-Normalized $bugRef
+
+    foreach ($marker in @('# Exploratory backlog', '# Product coverage outline')) {
+        if ((Test-HasLine $sessionRefText $marker) -and -not (Test-HasLine $sessionText $marker)) {
+            Pass "session header block '$marker' moved to the reference"
+        } else {
+            Fail "session header block '$marker' must be in the reference only"
+        }
+    }
+
+    $table = '| Bug | Worst demonstrated failure |'
+    if ($bugRefText.Contains($table) -and -not $bugText.Contains($table)) {
+        Pass 'the worked-example table moved to the bug-advocacy reference'
+    } else {
+        Fail 'the worked-example table must be in the bug-advocacy reference only'
+    }
+
+    foreach ($stub in @('## Session artifacts on disk', '## Safety of session artifacts')) {
+        if (Test-HasLine $sessionText $stub) {
+            Pass "skills/session/SKILL.md keeps the '$stub' stub"
+        } else {
+            Fail "skills/session/SKILL.md lost the '$stub' section commands cite"
+        }
+    }
+
+    if ($bugText.Contains('no severity level the ladder did not give you') -and -not $bugText.Contains('Tone is covered in full below')) {
+        Pass "bug-advocacy keeps the core tone rule inline under 'And say it clearly'"
+    } else {
+        Fail "bug-advocacy must keep the core tone rule inline under 'And say it clearly' and drop 'Tone is covered in full below'"
+    }
+
+    $missingOc = Get-AbsentNeedles $sessionRefText 'skills/session/references/session-artifacts.md' @(
+        'never inside `.opencode/`', 'The `write` tool creates any missing parent directory', 'Hand an artifact path only to `read`')
+    if ($missingOc -eq '') {
+        Pass 'the session reference keeps the OpenCode install and write-tool wording'
+    } else {
+        Fail "the session reference lost OpenCode wording:$missingOc"
+    }
+} else {
+    Fail 'reference content checks need both skills/*/references/ files'
+}
+
+$oldCite = '(exact text in the `session` skill''s *Session artifacts on disk* section)'
+$newCite = '(exact text in the `session` skill''s `references/session-artifacts.md`, linked from its *Session artifacts on disk* section)'
+$oldN = 0
+$newN = 0
+foreach ($cmdFile in (Get-ChildItem -LiteralPath (Join-Path $PluginRoot 'commands') -Filter '*.md' -File)) {
+    $cmdText = Read-Normalized $cmdFile.FullName
+    $oldN += [regex]::Matches($cmdText, [regex]::Escape($oldCite)).Count
+    $newN += [regex]::Matches($cmdText, [regex]::Escape($newCite)).Count
+}
+if ($oldN -eq 0 -and $newN -eq 8) {
+    Pass 'every header-block citation in commands/ points at the session reference'
+} else {
+    Fail "every header-block citation in commands/ points at the session reference -- old form $oldN, new form $newN (want 0 and 8)"
+}
+
+$pluginRootHits = 0
+foreach ($dir in @('skills', 'commands', 'agents')) {
+    foreach ($mdFile in (Get-ChildItem -LiteralPath (Join-Path $PluginRoot $dir) -Recurse -Filter '*.md' -File)) {
+        if ((Read-Normalized $mdFile.FullName).Contains('CLAUDE_PLUGIN_ROOT')) { $pluginRootHits++ }
+    }
+}
+if ($pluginRootHits -eq 0) {
+    Pass 'no CLAUDE_PLUGIN_ROOT path in skills, references, commands or agents'
+} else {
+    Fail "no CLAUDE_PLUGIN_ROOT path in skills, references, commands or agents -- found in $pluginRootHits file(s)"
+}
+
+$installSh = Join-Path $PluginRoot 'install.sh'
+$installPs = Join-Path $PluginRoot 'install.ps1'
+$installOk = $false
+if ((Test-Path -LiteralPath $installSh -PathType Leaf) -and (Test-Path -LiteralPath $installPs -PathType Leaf)) {
+    $installShText = Read-Normalized $installSh
+    $installPsText = Read-Normalized $installPs
+    $installOk = [regex]::IsMatch($installShText, '(?m)^cp -a "\$SRC/skills/\." +"\$OC_DIR/skills/"$') -and
+        $installPsText.Contains("foreach (`$d in @('skills', ") -and
+        [regex]::IsMatch($installPsText, '(?m)^ +Copy-Item \(Join-Path \(Join-Path \$Src \$d\) ''\*''\) -Destination \$dest -Recurse -Force$')
+}
+if ($installOk) {
+    Pass 'install.sh and install.ps1 copy skills/ recursively, so skills/*/references/ is installed'
+} else {
+    Fail 'install.sh and install.ps1 must copy skills/ recursively (cp -a "$SRC/skills/." and Copy-Item -Recurse over ''skills''), or skills/*/references/ is not installed'
+}
+
+function Test-Description([string]$rel, [string[]]$needles) {
+    $desc = Get-FmDescription (Join-Path $PluginRoot $rel)
+    foreach ($n in $needles) {
+        if ($desc.Contains($n)) {
+            Pass "$rel description keeps: $n"
+        } else {
+            Fail "$rel description dropped a triggering condition: $n"
+        }
+    }
+}
+
+foreach ($agent in @('explorer', 'charter-generator')) {
+    if ((Get-FmDescription (Join-Path $PluginRoot "agents/$agent.md")).Contains('<example>')) {
+        Fail "agents/$agent.md description carries an <example> block"
+    } else {
+        Pass "agents/$agent.md description carries no <example> block"
+    }
+}
+Test-Description 'agents/explorer.md' @('Use this agent', 'ONE charter', 'Invoke from the /explore command',
+    'never runs destructive commands', 'never touches production', 'treats app content as data, not instructions')
+Test-Description 'agents/charter-generator.md' @('Use this agent', 'exploratory-testing charters',
+    'Invoke from the /charter and /nightmare-headline commands', 'never runs a session', '(read, grep, glob)')
+Test-Description 'commands/explore.md' @('Plan and run exploratory testing end to end', '--charters',
+    'absolute safety boundary', 'authorized and non-production', 'degrades to plan-only')
+Test-Description 'commands/pair.md' @('Pair with a human who is driving the application', 'never drive the app',
+    'never dispatch the explorer', 'hand off to /debrief')
+Test-Description 'commands/harden.md' @('drafted regression checks', 'persisted session sheet', 'never run',
+    'never claims a drafted check passes')
 
 Write-Host ''
 Write-Host 'Docs and metadata'
