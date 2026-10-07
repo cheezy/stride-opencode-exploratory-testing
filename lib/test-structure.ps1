@@ -19,6 +19,10 @@
 # rule and its refusals, the 2,048-byte unfenced summary, the
 # 'report: NOT WRITTEN - ' fallback, /explore staying inline, and that edit,
 # write and patch stay off unless an edit permission map starts with "*": deny.
+# It pins verify mode: EXPLORATORY_MODE=verify, the 2-probe / 10-tool-call
+# self-counted budget, the pass | fail | not_verified verdict that is never a
+# pass when not_verified, the verify: summary line, and that the card carries
+# none of it.
 #
 # Offline and read-only: it tests file existence and reads agents/explorer.md
 # and skills/bug-advocacy/SKILL.md as text with .NET string and regex calls,
@@ -570,9 +574,6 @@ if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPa
         'bugs: <total> (Critical <n>, High <n>, Moderate <n>, Minor <n>); questions_risks: <n>; off_charter: <n>; known_bad: <n>',
         '<Severity> | replicated: <yes|no|not established> | <bug summary, 100 characters at most>',
         '(<k> bug lines dropped; all <total> are in the report)')
-    if ($rpText.Contains('verify: <')) {
-        $missingRpSum += ' [stale: verify line; this edition has no verify mode]'
-    }
     if ($missingRpSum -eq '') {
         Pass 'explorer.md replies with an unfenced summary of at most 2,048 bytes in a fixed line order'
     } else {
@@ -668,6 +669,72 @@ if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPa
     }
 } else {
     Fail 'report-path checks need agents/explorer.md, commands/explore.md and README.md'
+}
+
+# --- Explorer verify mode ----------------------------------------------------
+#
+# EXPLORATORY_MODE=verify re-checks one fixed bug from its minimal_repro on a
+# 2-probe / 10-tool-call budget and adds a root verify object whose result is
+# pass, fail or not_verified, plus a verify: line in the report summary.
+# OpenCode sets no turn or step bound on this agent, so the 10-call ceiling is
+# one the agent counts itself, and the pins say so. not_verified is never a
+# pass. Verify mode lives outside the explorer card, which is at its size cap.
+# The em dash and en dash are built from [char] codes for Windows PowerShell 5.1.
+Write-Host ''
+Write-Host 'Explorer verify mode'
+
+if (Test-Path -LiteralPath $Explorer -PathType Leaf) {
+    $vmText = ([IO.File]::ReadAllText($Explorer, [Text.Encoding]::UTF8)) -replace "`r`n", "`n"
+    $vmEm = [string][char]0x2014
+    $vmEn = [string][char]0x2013
+    $missingVm = Get-AbsentNeedles $vmText 'agents/explorer.md' @(
+        '**`EXPLORATORY_MODE=verify`** (optional)',
+        'and **2 probes / 10 tool calls** in verify mode',
+        ('## Verify mode ' + $vmEm + ' re-checking a fixed bug'),
+        '**Verify mode is opt-in: without `EXPLORATORY_MODE=verify`, nothing in this file changes.**',
+        ('Default **2 probes**; the band is **1' + $vmEn + '2**'),
+        'so **10 tool calls** at the default',
+        'but never a larger probe budget',
+        '**OpenCode puts no turn or step limit on this agent, so nothing outside you stops the eleventh call: the 10-call ceiling is one you count yourself**',
+        'Probe 1 runs the `minimal_repro` exactly',
+        'do not improvise one',
+        'a ceiling hit before probe 1 got there',
+        'one caused by a ceiling before probe 1 reached the repro is `stopped_early`',
+        '"result": "pass" | "fail" | "not_verified"',
+        'including a partial fix',
+        '**`not_verified` is never a pass**',
+        'Verify mode is no exception: a verify dispatch missing either line also returns `verify.result: "not_verified"`',
+        '**`stop_reason` keeps the card''s six values.**',
+        '**A verify pass covers that one bug only**',
+        '**The smaller budget never relaxes the safety boundary.**')
+    if ($missingVm -eq '') {
+        Pass 'explorer.md documents EXPLORATORY_MODE=verify, its self-counted 2-probe / 10-tool-call budget and the pass, fail and not_verified results'
+    } else {
+        Fail "explorer.md verify-mode rules missing:$missingVm"
+    }
+
+    $missingVmOut = Get-AbsentNeedles $vmText 'agents/explorer.md' @(
+        '| `verify` | verify mode only | object |',
+        '**In verify mode a `verify: <verify.result>` line follows `status:`**',
+        'seven in verify mode, with `verify:`',
+        'it is not a fourth shape')
+    if ($vmText.Contains('keeps the card''s five values')) {
+        $missingVmOut += ' [stale: five stop_reason values; this card has six]'
+    }
+    if ($missingVmOut -eq '') {
+        Pass 'explorer.md adds the verify root key and the verify: summary line without a new reply shape'
+    } else {
+        Fail "explorer.md verify-mode output rules missing:$missingVmOut"
+    }
+
+    $vmCard = [regex]::Match($vmText, '<!-- explorer-card:start -->(.*?)<!-- explorer-card:end -->', 'Singleline')
+    if ($vmCard.Success -and $vmCard.Groups[1].Value -match 'verify') {
+        Fail 'explorer card mentions verify mode; the card is at its size cap'
+    } else {
+        Pass 'verify mode stays outside the explorer card'
+    }
+} else {
+    Fail 'verify-mode checks need agents/explorer.md'
 }
 
 # --- Explorer output contract ----------------------------------------------
@@ -887,6 +954,15 @@ if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPa
     else { Fail "contract_version is documented as `"1.0`" -- found '$version'" }
     if (($severities -join ' ') -ceq 'Critical High Moderate Minor') { Pass 'card severity tokens parsed' }
     else { Fail "card severity tokens parsed -- [$($severities -join ' ')]" }
+    $verifyRowOk = $false
+    if ($elements.Contains('verify') -and $null -ne $elements['verify'][0]) {
+        $vSpec = $elements['verify']
+        $verifyRowOk = ((@($vSpec[0]) -join ' ') -ceq 'result repro_reached evidence') -and
+            $vSpec[1].Contains('result') -and ((@($vSpec[1]['result']) -join ' ') -ceq 'pass fail not_verified') -and
+            (-not $root['verify'].required)
+    }
+    if ($verifyRowOk) { Pass 'the verify root key is optional and documents result pass, fail or not_verified, repro_reached and evidence' }
+    else { Fail 'the verify root key is optional and documents result pass, fail or not_verified, repro_reached and evidence' }
 
     function Test-Report($doc) {
         $errs = New-Object 'System.Collections.Generic.List[string]'
@@ -970,6 +1046,26 @@ if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPa
         $debOk = ($deb -is [System.Management.Automation.PSCustomObject]) -and $debKeys.Contains('explored') -and $debKeys.Contains('found') -and $debKeys.Contains('unknown')
         foreach ($k in $debKeys) { if (-not (@('explored','found','unknown','proof') -ccontains $k)) { $debOk = $false } }
         if (-not $debOk) { $errs.Add('debrief is not {explored, found, unknown[, proof]}') }
+        $vGot = Get-Prop $doc 'verify'
+        if ($vGot[0]) {
+            $v = $vGot[1]
+            $vWant = New-Set @()
+            if ($elements.Contains('verify') -and $null -ne $elements['verify'][0]) { $vWant = New-Set @($elements['verify'][0]) }
+            if (-not ($v -is [System.Management.Automation.PSCustomObject]) -or -not (Get-Keys $v).SetEquals($vWant)) {
+                $errs.Add("verify keys are not exactly [$(@($vWant) -join ' ')]")
+            } else {
+                foreach ($ek in $elements['verify'][1].Keys) {
+                    if (-not (@($elements['verify'][1][$ek]) -ccontains (Get-Prop $v $ek)[1])) { $errs.Add("verify.$ek '$((Get-Prop $v $ek)[1])' not in [$(@($elements['verify'][1][$ek]) -join ' ')]") }
+                }
+                $reached = (Get-Prop $v 'repro_reached')[1]
+                if (-not ($reached -is [bool])) {
+                    $errs.Add('verify.repro_reached is not a boolean')
+                } elseif (((Get-Prop $v 'result')[1] -ceq 'pass') -and -not $reached) {
+                    $errs.Add('verify.result pass without repro_reached')
+                }
+                if (-not ((Get-Prop $v 'evidence')[1] -is [string])) { $errs.Add('verify.evidence is not a string') }
+            }
+        }
         return ,$errs
     }
 
@@ -1022,6 +1118,22 @@ if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPa
                 $d.questions_risks = @($d.questions_risks) + @([pscustomobject]@{ kind = 'risk'; text = 'rendered contrast of the error banner: no browser tool' }) }
             'replicated 2/3' = { param($d) $d.bugs[0].replicated = '2/3' }
             'a once-seen Critical (1/5)' = { param($d) $d.bugs[0].replicated = '1/5' }
+            'a verify pass' = { param($d)
+                $d | Add-Member -NotePropertyName 'verify' -NotePropertyValue ([pscustomobject]@{ result = 'pass'; repro_reached = $true; evidence = 'the repro no longer fails' }) }
+            'a verify not_verified after the tool-call ceiling hit before probe 1' = { param($d)
+                $d.status = 'stopped_early'
+                $s = $d.session_sheet
+                $s.probes_attempted = 0; $s.probes_with_finding = 0; $s.on_charter_probes = 0; $s.off_charter_probes = 0
+                $s.tool_calls_used = 10; $s.stop_reason = 'tool_call_ceiling'
+                Set-EmptyArray $d 'bugs'
+                $d | Add-Member -NotePropertyName 'verify' -NotePropertyValue ([pscustomobject]@{ result = 'not_verified'; repro_reached = $false; evidence = 'setup used the 10-call ceiling' }) }
+            'a verify not_verified, blocked before the first probe' = { param($d)
+                $d.status = 'blocked'
+                $s = $d.session_sheet
+                $s.probes_attempted = 0; $s.probes_with_finding = 0; $s.on_charter_probes = 0; $s.off_charter_probes = 0
+                $s.tool_calls_used = 3; $s.areas_covered = @(); $s.heuristics_applied = @(); $s.stop_reason = 'blocked'
+                foreach ($k in 'notes','bugs','questions_risks','off_charter','known_bad') { Set-EmptyArray $d $k }
+                $d | Add-Member -NotePropertyName 'verify' -NotePropertyValue ([pscustomobject]@{ result = 'not_verified'; repro_reached = $false; evidence = 'no usable minimal_repro' }) }
         }
         foreach ($label in $passing.Keys) {
             $e = Test-Report (New-Variant $passing[$label])
@@ -1062,6 +1174,12 @@ if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPa
             'a plain-string questions_risks element' = { param($d) $d.questions_risks[0] = 'Is a dropped final row acceptable?' }
             'questions_risks kind worry' = { param($d) $d.questions_risks[0].kind = 'worry' }
             'a candidate_charter not in charter form' = { param($d) $d.off_charter[0].candidate_charter = 'Look at uploads' }
+            'verify result passed' = { param($d) $d | Add-Member -NotePropertyName 'verify' -NotePropertyValue ([pscustomobject]@{ result = 'passed'; repro_reached = $true; evidence = 'x' }) }
+            'a verify object without evidence' = { param($d) $d | Add-Member -NotePropertyName 'verify' -NotePropertyValue ([pscustomobject]@{ result = 'fail'; repro_reached = $true }) }
+            'a verify pass that never reached the repro' = { param($d) $d | Add-Member -NotePropertyName 'verify' -NotePropertyValue ([pscustomobject]@{ result = 'pass'; repro_reached = $false; evidence = 'x' }) }
+            'verify repro_reached that is not a boolean' = { param($d) $d | Add-Member -NotePropertyName 'verify' -NotePropertyValue ([pscustomobject]@{ result = 'fail'; repro_reached = 'yes'; evidence = 'x' }) }
+            'a verify object with an undocumented key' = { param($d) $d | Add-Member -NotePropertyName 'verify' -NotePropertyValue ([pscustomobject]@{ result = 'pass'; repro_reached = $true; evidence = 'x'; verdict = 'pass' }) }
+            'a verify value that is not an object' = { param($d) $d | Add-Member -NotePropertyName 'verify' -NotePropertyValue 'pass' }
         }
         foreach ($label in $refused.Keys) {
             $e = Test-Report (New-Variant $refused[$label])

@@ -219,7 +219,8 @@ EXPLORATORY_REPORT_PATH=/absolute/path/to/project/.stride/.exploratory-W123-r1.j
 - **What you get back.** Plain text of at most 2,048 bytes with no ```json fence:
   `report:`, `contract_version:`, `status:`, `stop_reason:`, a probes line, a bug count
   by severity (plus `questions_risks`, `off_charter` and `known_bad` counts), then one
-  `<Severity> | replicated: <yes|no|not established> | <summary>` line per bug. Read the
+  `<Severity> | replicated: <yes|no|not established> | <summary>` line per bug; a verify
+  dispatch also gets a `verify:` line after `status:`. Read the
   findings from the path **you** supplied, never one the summary names. To check a
   written report against the contract, run
   `EXPLORER_OUTPUT=<path> bash lib/test-structure.sh`.
@@ -252,6 +253,28 @@ tool (`edit`, `write`, `patch` or `apply_patch`, key quoted or not, block or flo
 or a top-level `permission: allow|ask` is turned on, unless an `edit` permission map
 starts with `"*": deny` and no later entry opens a wildcard at the top of a path
 (`"**"`, `"/**"`, `"*.json"`, `"~/..."`).
+
+### Explorer verify mode (`EXPLORATORY_MODE=verify`)
+
+Re-checking a bug after a fix does not need a whole new session. A workflow that
+dispatches `explorer` can add one line, `EXPLORATORY_MODE=verify`, to the environment
+context, together with the bug's `summary`, `observed` and `minimal_repro` (and its
+`generalization`, if it has one), and a charter of the form
+`Explore <the fixed behaviour> with <the bug's minimal_repro> to discover whether <its observed failure> still occurs`.
+
+- **Budget.** 2 probes and 10 tool calls by default (band 1–2). You may raise the
+  tool-call ceiling for a repro that needs setup, never above 60, but never the probe
+  budget. OpenCode sets no turn or step limit on the agent, so the explorer counts the
+  10 calls itself.
+- **Result.** The findings object gains a root `verify` object,
+  `{ "result": "pass" | "fail" | "not_verified", "repro_reached", "evidence" }`. A partial
+  fix is `fail`, and its remaining defect is in `bugs`. A repro that was never reached,
+  or a bug with no usable `minimal_repro`, is `not_verified`: **never treat it as a
+  pass.** A pass covers that one bug, not the rest of the original charter.
+- **Everything else still applies.** The two required lines (`AUTHORIZED_NON_PRODUCTION`
+  and `ALLOWED_HOSTS`), cleanup and the report-file rules work exactly as in an ordinary session; without both
+  required lines a verify dispatch returns `not_verified`. Without the variable nothing
+  changes.
 
 ## Quick start
 

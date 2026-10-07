@@ -19,6 +19,10 @@
 # rule and its refusals, the 2,048-byte unfenced summary, the
 # 'report: NOT WRITTEN - ' fallback, /explore staying inline, and that edit,
 # write and patch stay off unless an edit permission map starts with "*": deny.
+# It pins verify mode: EXPLORATORY_MODE=verify, the 2-probe / 10-tool-call
+# self-counted budget, the pass | fail | not_verified verdict that is never a
+# pass when not_verified, the verify: summary line, and that the card carries
+# none of it.
 #
 # Offline and read-only: it stats files and reads agents/explorer.md and
 # skills/bug-advocacy/SKILL.md as text with grep/awk, and the JSON fixture
@@ -479,7 +483,6 @@ if [ -f "$EXPLORER" ] && [ -f "$EXPLORE_CMD" ] && [ -f "$README_MD" ]; then
     'bugs: <total> (Critical <n>, High <n>, Moderate <n>, Minor <n>); questions_risks: <n>; off_charter: <n>; known_bad: <n>' \
     '<Severity> | replicated: <yes|no|not established> | <bug summary, 100 characters at most>' \
     '(<k> bug lines dropped; all <total> are in the report)')
-  grep -qF -e 'verify: <' "$EXPLORER" && MISSING_RP_SUM="${MISSING_RP_SUM} [stale: verify line; this edition has no verify mode]"
   if [ -z "$MISSING_RP_SUM" ]; then
     ok "explorer.md replies with an unfenced summary of at most 2,048 bytes in a fixed line order"
   else
@@ -553,6 +556,65 @@ if [ -f "$EXPLORER" ] && [ -f "$EXPLORE_CMD" ] && [ -f "$README_MD" ]; then
   fi
 else
   nope "report-path checks need agents/explorer.md, commands/explore.md and README.md"
+fi
+
+# --- Explorer verify mode ----------------------------------------------------
+#
+# EXPLORATORY_MODE=verify re-checks one fixed bug from its minimal_repro on a
+# 2-probe / 10-tool-call budget and adds a root verify object whose result is
+# pass, fail or not_verified, plus a verify: line in the report summary.
+# OpenCode sets no turn or step bound on this agent, so the 10-call ceiling is
+# one the agent counts itself, and the pins say so. not_verified is never a
+# pass. Verify mode lives outside the explorer card, which is at its size cap.
+printf '\nExplorer verify mode\n'
+
+if [ -f "$EXPLORER" ]; then
+  MISSING_VM=$(absent_needles "$EXPLORER" agents/explorer.md \
+    '**`EXPLORATORY_MODE=verify`** (optional)' \
+    'and **2 probes / 10 tool calls** in verify mode' \
+    '## Verify mode — re-checking a fixed bug' \
+    '**Verify mode is opt-in: without `EXPLORATORY_MODE=verify`, nothing in this file changes.**' \
+    'Default **2 probes**; the band is **1–2**' \
+    'so **10 tool calls** at the default' \
+    'but never a larger probe budget' \
+    '**OpenCode puts no turn or step limit on this agent, so nothing outside you stops the eleventh call: the 10-call ceiling is one you count yourself**' \
+    'Probe 1 runs the `minimal_repro` exactly' \
+    'do not improvise one' \
+    'a ceiling hit before probe 1 got there' \
+    'one caused by a ceiling before probe 1 reached the repro is `stopped_early`' \
+    '"result": "pass" | "fail" | "not_verified"' \
+    'including a partial fix' \
+    '**`not_verified` is never a pass**' \
+    'Verify mode is no exception: a verify dispatch missing either line also returns `verify.result: "not_verified"`' \
+    '**`stop_reason` keeps the card'"'"'s six values.**' \
+    '**A verify pass covers that one bug only**' \
+    '**The smaller budget never relaxes the safety boundary.**')
+  if [ -z "$MISSING_VM" ]; then
+    ok "explorer.md documents EXPLORATORY_MODE=verify, its self-counted 2-probe / 10-tool-call budget and the pass, fail and not_verified results"
+  else
+    nope "explorer.md verify-mode rules missing:${MISSING_VM}"
+  fi
+
+  MISSING_VM_OUT=$(absent_needles "$EXPLORER" agents/explorer.md \
+    '| `verify` | verify mode only | object |' \
+    '**In verify mode a `verify: <verify.result>` line follows `status:`**' \
+    'seven in verify mode, with `verify:`' \
+    'it is not a fourth shape')
+  grep -qF -e 'keeps the card'"'"'s five values' "$EXPLORER" \
+    && MISSING_VM_OUT="${MISSING_VM_OUT} [stale: five stop_reason values; this card has six]"
+  if [ -z "$MISSING_VM_OUT" ]; then
+    ok "explorer.md adds the verify root key and the verify: summary line without a new reply shape"
+  else
+    nope "explorer.md verify-mode output rules missing:${MISSING_VM_OUT}"
+  fi
+
+  if card_text | grep -qi -e 'verify'; then
+    nope "explorer card mentions verify mode; the card is at its size cap"
+  else
+    ok "verify mode stays outside the explorer card"
+  fi
+else
+  nope "verify-mode checks need agents/explorer.md"
 fi
 
 # --- Explorer output contract ----------------------------------------------
@@ -664,6 +726,11 @@ say(all(elements[k][0] for k in ("questions_risks", "off_charter", "known_bad"))
     "questions_risks, off_charter and known_bad have defined element types", "")
 say(version == "1.0", "contract_version is documented as \"1.0\"", "found %r" % version)
 say(severities == ["Critical", "High", "Moderate", "Minor"], "card severity tokens parsed", str(severities))
+say(elements.get("verify", (None, {}))[0] == ["result", "repro_reached", "evidence"]
+    and elements["verify"][1].get("result") == ["pass", "fail", "not_verified"]
+    and not root["verify"]["required"],
+    "the verify root key is optional and documents result pass, fail or not_verified, repro_reached and evidence",
+    "row=%s" % (elements.get("verify"),))
 
 REPLICATED = re.compile(r"^(?:([1-9][0-9]*)/([1-9][0-9]*)|not established: \S.*)$")
 
@@ -728,6 +795,21 @@ def validate(doc):
     deb = doc.get("debrief")
     if not isinstance(deb, dict) or not {"explored", "found", "unknown"} <= set(deb) or set(deb) - {"explored", "found", "unknown", "proof"}:
         errs.append("debrief is not {explored, found, unknown[, proof]}")
+    if "verify" in doc:
+        vk, venums = elements["verify"]
+        v = doc["verify"]
+        if not isinstance(v, dict) or set(v) != set(vk or []):
+            errs.append("verify keys are not exactly %s" % vk)
+        else:
+            for k, allowed in venums.items():
+                if v.get(k) not in allowed:
+                    errs.append("verify.%s %r not in %s" % (k, v.get(k), allowed))
+            if not isinstance(v.get("repro_reached"), bool):
+                errs.append("verify.repro_reached is not a boolean")
+            elif v.get("result") == "pass" and not v.get("repro_reached"):
+                errs.append("verify.result pass without repro_reached")
+            if not isinstance(v.get("evidence"), str):
+                errs.append("verify.evidence is not a string")
     return errs
 
 def parse(text):
@@ -783,6 +865,17 @@ def unobservable_part(d):
     d["status"] = "blocked"
     d["session_sheet"]["stop_reason"] = "no_observation_surface"
     d["questions_risks"].append({"kind": "risk", "text": "rendered contrast of the error banner: no browser tool"})
+def verify_pass(d):
+    d["verify"] = {"result": "pass", "repro_reached": True, "evidence": "the repro no longer fails"}
+def verify_ceiling_first(d):
+    d["status"] = "stopped_early"
+    d["session_sheet"].update(probes_attempted=0, probes_with_finding=0, on_charter_probes=0,
+                              off_charter_probes=0, tool_calls_used=10, stop_reason="tool_call_ceiling")
+    d["bugs"] = []
+    d["verify"] = {"result": "not_verified", "repro_reached": False, "evidence": "setup used the 10-call ceiling"}
+def verify_not_reached(d):
+    blocked_first(d)
+    d["verify"] = {"result": "not_verified", "repro_reached": False, "evidence": "no usable minimal_repro"}
 def two_of_three(d):
     d["bugs"][0]["replicated"] = "2/3"
 def once_seen(d):
@@ -791,7 +884,10 @@ def once_seen(d):
 for label, fn in (("zero bugs", zero_bugs), ("no bugs and an empty known_bad array", empty_arrays),
                   ("blocked before the first probe", blocked_first),
                   ("no_observation_surface after probing the observable part, findings kept", unobservable_part),
-                  ("replicated 2/3", two_of_three), ("a once-seen Critical (1/5)", once_seen)):
+                  ("replicated 2/3", two_of_three), ("a once-seen Critical (1/5)", once_seen),
+                  ("a verify pass", verify_pass),
+                  ("a verify not_verified after the tool-call ceiling hit before probe 1", verify_ceiling_first),
+                  ("a verify not_verified, blocked before the first probe", verify_not_reached)):
     e = validate(variant(fn))
     say(not e, "variant passes: " + label, "; ".join(e))
 
@@ -846,6 +942,18 @@ def bad_kind(d):
     d["questions_risks"][0]["kind"] = "worry"
 def not_a_charter(d):
     d["off_charter"][0]["candidate_charter"] = "Look at uploads"
+def verify_passed_word(d):
+    d["verify"] = {"result": "passed", "repro_reached": True, "evidence": "x"}
+def verify_no_evidence(d):
+    d["verify"] = {"result": "fail", "repro_reached": True}
+def verify_unreached_pass(d):
+    d["verify"] = {"result": "pass", "repro_reached": False, "evidence": "x"}
+def verify_string_reached(d):
+    d["verify"] = {"result": "fail", "repro_reached": "yes", "evidence": "x"}
+def verify_extra_key(d):
+    d["verify"] = {"result": "pass", "repro_reached": True, "evidence": "x", "verdict": "pass"}
+def verify_not_object(d):
+    d["verify"] = "pass"
 
 for label, fn in (("a bug without replicated", no_replicated),
                   ("provisional disagrees with stakeholder_impact", bad_provisional),
@@ -856,7 +964,12 @@ for label, fn in (("a bug without replicated", no_replicated),
                   ("a session_sheet count that is a boolean", bool_count),
                   ("no contract_version", no_version), ("contract_version 0.9", other_version),
                   ("no known_bad array", no_known_bad), ("a plain-string questions_risks element", plain_question),
-                  ("questions_risks kind worry", bad_kind), ("a candidate_charter not in charter form", not_a_charter)):
+                  ("questions_risks kind worry", bad_kind), ("a candidate_charter not in charter form", not_a_charter),
+                  ("verify result passed", verify_passed_word), ("a verify object without evidence", verify_no_evidence),
+                  ("a verify pass that never reached the repro", verify_unreached_pass),
+                  ("verify repro_reached that is not a boolean", verify_string_reached),
+                  ("a verify object with an undocumented key", verify_extra_key),
+                  ("a verify value that is not an object", verify_not_object)):
     say(bool(validate(variant(fn))), "variant is refused: " + label, "the validator accepted it")
 
 for path in extra:
