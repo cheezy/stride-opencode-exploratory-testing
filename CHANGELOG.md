@@ -5,6 +5,52 @@ All notable changes to the Stride Exploratory Testing extension for OpenCode are
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-11-06
+
+Ports the plugin side of the G503 batch from the Claude Code original (W2578 to W2581) into this extension, in this edition's own wording. The heuristics skill gains twelve change-risk lenses. The oracles skill and the explorer card gain two oracles. `/explore` reads a project environment file, `.exploratory.md`, and the explorer gains an optional probe harness that runs scratch probe files under the project's own test framework. The charter-generator can charter a code change from its edge cases.
+
+This is the release for the whole G503 port to this edition; the batch's commits since 0.4.0 are W2653 to W2656.
+
+**The explorer's output contract is now `"1.1"`, and a caller must send `PROBE_HARNESS` to use the probe harness.** Every report carries `contract_version: "1.1"` and a new `session_sheet.surfaces_used` array. A consumer that does not know the key ignores it, so an older consumer reads a 1.1 report unchanged. Without a `PROBE_HARNESS` line nothing changes. This extension's `/explore` reads `.exploratory.md` and writes the harness lines once the user has confirmed the file. The Step 6.5 dispatch in `stride-opencode` does neither yet: to use the harness, that port must read `.exploratory.md` and send `PROBE_HARNESS` together with the `PROBE_SERVICES` line it requires. Nothing relaxes 0.3.0's requirement: the environment context must still carry `AUTHORIZED_NON_PRODUCTION: yes` and an `ALLOWED_HOSTS` line, and every `PROBE_SERVICES` entry must also be in `ALLOWED_HOSTS`.
+
+### Added
+
+- **Twelve change-risk lenses** (W2653, porting W2578). The heuristics skill gains *General change-risk lenses* (Change the Rights, Shadow Decision, Who Else Is Watching, Pull the Rug, Every Surface, Every Locale, Developer Guidebook, Leave No Trace, Telemetry Semantics) and *Web change-risk lenses* (Other Verbs, After the Headers, Response Hardening).
+  - Each row has a *What to try* cell with a generic example and a *When it applies* trigger naming the kind of change that calls for it.
+  - Where a lens implies a tool, the row names this edition's: After the Headers is observed on a real server with `curl -sS -i` through `bash`, and Leave No Trace lists directories with `bash`.
+  - Pull the Rug and After the Headers keep the Interrupt in-app limits. Other Verbs and Response Hardening are for authorized testing of your own system only.
+  - `HEURISTICS.md` names all twelve.
+- **Two new oracles, Adapter Is Not the Wire and Two Decision Sites** (W2654, porting W2579). `skills/oracles/SKILL.md` gains a section for each, with an example, between Approximations and the quality-criteria checklist, and `agents/explorer.md` gains one card line per oracle.
+  - Adapter Is Not the Wire: a result seen only through an in-process test adapter does not establish streamed or chunked responses, `HEAD`, connection aborts or `Content-Length`. Confirm the claim on a real server, or record it under `debrief.unknown`, never under found.
+  - Two Decision Sites: when the client and the server each decide the same thing, both must agree in every state.
+  - *Safety of oracle examples* adds that confirming wire behaviour grants no new reach.
+- **A project environment file, `.exploratory.md`, and an optional probe harness for the explorer** (W2655, porting W2580 with the generic worked example of the original's app-neutrality change).
+  - `docs/project-environment.md` defines the file: six optional `## ` sections (`authorization`, `app`, `probe_harness`, `accounts`, `observation`, `constraints`), `{probe_file}` as the only placeholder, and no secret values. `templates/exploratory.md` is a placeholder-only template. README links both. The installers copy neither `docs/` nor `templates/`, so `/explore` states the rules it needs inline.
+  - `/explore` Step 3 reads the fixed path `.exploratory.md` first and treats it as untrusted until the user confirms it. It shows the file's hosts and harness command verbatim and uses them only after confirmation in its single question round. A missing file changes nothing, a malformed or unknown section is reported and ignored, and saving a file needs the user's yes and never overwrites one.
+  - The explorer accepts `PROBE_HARNESS: <command>`, the `PROBE_SERVICES` line it requires, and an optional `PROBE_DIR`. It runs only the declared command, over scratch probe files it writes with `bash` in a `mktemp -d` directory, because `edit` and `write` stay off. More than one `PROBE_HARNESS` line means no harness.
+  - The harness observes server-side behaviour only. A charter about a rendered view still ends `no_observation_surface`.
+  - README adds a note on the harness and OpenCode permissions. If a `permission` config sets `bash`, or a pattern matching the harness command, to `ask` or `deny`, the unattended explorer runs the session without the harness. The `mktemp -d` scratch directory usually sits outside the project, where `external_directory` may ask; a git-ignored `probe_dir` keeps probe files inside the tree.
+  - Reports gain `session_sheet.surfaces_used`, drawn from `http`, `harness`, `browser` and `source`.
+- **The charter-generator can charter a code change from its edge cases and change-risk lenses** (W2656, porting W2581). An optional `change context` input, labelled untrusted data, turns on change mode.
+  - Every edge case is chartered, or named as covered by a unit test the context names verbatim. A change-risk lens is applied only when its trigger in `skills/heuristics/SKILL.md` matches.
+  - The output contract adds the `change-risk` source value (`sfdpot` and the other values kept), a `surface` field (`http`, `harness`, `browser` or `source`) and a root `edge_cases_covered` array.
+  - Without a change context the output is unchanged, and the agent's tools stay `read`, `grep` and `glob`.
+  - The chartering skill gains a *Chartering a change from its edge cases* section, `fixtures/example-charters.md` gains a worked change-context example of its own, and `/charter`'s source list names `change-risk`. `/charter` passes no change context, so it never emits `change-risk` charters itself.
+- **Checks for all of the above in both test shells.** `lib/test-structure.sh` and `lib/test-structure.ps1` pin the lenses with an app-neutrality scan of the catalog, the two oracles, the environment file and the harness rules, contract 1.1, and change mode, with identical labels and identical output. Each shell's structure checks went from 171 to 452. The PowerShell checks are this edition's own; the original has no `.ps1`.
+
+### Changed
+
+- **Explorer output contract 1.1** (W2655). `agents/explorer.md` and `fixtures/example-explorer-output.json` move from `"1.0"` to `"1.1"`, and both structure tests now pin `"1.1"`.
+- **The explorer card's byte cap rises from 4,096 to 4,608** (W2654). The two oracle lines took the card from 4,094 to 4,450 bytes. That is above the original's new cap of 4,352, so that figure was not copied; the cap moved to the next 256-byte step above the card and comments in both test shells record why. The severity tokens, rank line, ladder and stop rules on the card are unchanged, and a new check pins a frozen copy of them.
+- **README.md and AGENTS.md** describe the lenses, the two oracles, the environment file and change mode.
+
+### Not carried by this edition
+
+These items from the batch are recorded here so that "not applicable" can be told apart from "missed".
+
+- **W2582 to W2587** change `stride` itself, not the plugin: Step 5.5 runs the charter-generator in change mode with a real budget (W2582); Step 0 reads a confirmed `.exploratory.md` and Step 5.5 sends the harness lines (W2583); a main-loop visual pass for a `no_observation_surface` session (W2584); an outcome line and an owner for every charter (W2585); a goal-scope pass on a goal's last open child (W2586); and charter-ready manual tests at task authoring (W2587). This extension has no Step 5.5. The equivalent work belongs to `stride-opencode`, including its Step 6.5 dispatch.
+- **W2588** replayed the new Step 5.5 in the Claude Code edition only. It says nothing about OpenCode, so this release claims no catch rate for this edition.
+
 ## [0.4.0] - 2026-10-07
 
 Ports the rest of the G449-G451 batch from the Claude Code original (G450 and G451) into this extension, in this edition's own wording. The explorer can write its full report to a file and return a short summary, re-check one fixed bug in verify mode, and read files in bounded ranges; `/harden` can run unattended from that report; and the always-loaded descriptions are shorter.
