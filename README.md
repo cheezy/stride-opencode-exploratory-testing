@@ -201,13 +201,38 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
   SBTM session sheet, and returns structured findings (or, given
   `EXPLORATORY_REPORT_PATH`, writes them to that file and returns a short summary — see
   [Explorer report file](#explorer-report-file-exploratory_report_path)) — all under the
-  absolute safety boundary.
+  absolute safety boundary. Given an optional `PROBE_HARNESS:` line, it runs scratch
+  probe files under the project's own test framework, signing in fixture users with
+  several roles, and records which surfaces it used in `session_sheet.surfaces_used`
+  (contract `1.1`).
 
 **[`fixtures/`](fixtures/)** — worked examples of the full flow: an
 [example charter set](fixtures/example-charters.md), an
 [example session sheet](fixtures/example-session-sheet.md), and an
 [example debrief](fixtures/example-debrief.md). They double as concrete templates and
 as regression anchors for the smoke tests.
+
+**[`templates/`](templates/)** — [a commented `.exploratory.md` template](templates/exploratory.md),
+placeholders only. Copy it to the root of the project you test as `.exploratory.md`
+to say once how sessions reach the running system: the authorization lines, the
+app's address, the probe-harness command, the account roles, the observation tools
+and the project's constraints. It holds no secret values. `/explore` reads it in Step
+3 and uses it only after you confirm it for that session. The format and the reading
+rules are in [docs/project-environment.md](docs/project-environment.md). The
+installers copy neither `templates/` nor `docs/`, so take the template from this
+repository. `.exploratory.md` is yours, not a session artifact: it sits beside the
+`.exploratory/` directory, and no command writes it unless `/explore` offers to save
+your answers when none exists and you say yes. It is never overwritten.
+
+**The probe harness and OpenCode permissions.** A declared harness command runs
+through the explorer's `bash`, which its `tools` map turns on, so it needs no extra
+permission rule; none could be written in frontmatter anyway, because the command
+arrives at dispatch. If your OpenCode `permission` config sets `bash`, or a pattern
+matching the command, to `ask` or `deny`, the unattended explorer cannot answer and
+runs the session without the harness. Probe files are written through `bash` too,
+with `edit` and `write` left off. The explorer's `mktemp -d` scratch directory
+usually sits outside the project, where OpenCode's `external_directory` permission
+may ask; a git-ignored `probe_dir` keeps probe files inside the tree.
 
 See also **[HEURISTICS.md](HEURISTICS.md)** for a one-page pointer to the lenses in
 the `heuristics` skill.
@@ -223,7 +248,7 @@ EXPLORATORY_REPORT_PATH=/absolute/path/to/project/.stride/.exploratory-W123-r1.j
 ```
 
 - **What the explorer does with it.** After cleanup it writes the complete contract
-  `1.0` findings object to exactly that file with one `bash` command; if the parent
+  `1.1` findings object to exactly that file with one `bash` command; if the parent
   directory is missing it runs one `mkdir -p` and tries the write once more. Use a new
   path for every dispatch and keep it inside the project: OpenCode has an
   `external_directory` permission for paths outside the working tree, and an

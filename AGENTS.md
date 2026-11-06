@@ -78,6 +78,11 @@ application output and are working material, not source. A missing artifact is a
 empty starting state, never an error: the first run in a new project is the run that
 creates the tree.
 
+`.exploratory.md`, beside that directory, is not an artifact: you write it, it holds no
+secret values, and you may commit it. `/explore` reads it in Step 3 and uses it only
+after you confirm it for that session, and writes one only when none exists and you say
+yes.
+
 ## Custom Agents
 
 Subagents are dispatched by the commands (via `@mention`); they are not invoked
@@ -93,7 +98,9 @@ directly from a user prompt. They live at `agents/<name>.md` (OpenCode subagent 
   returns structured findings. It exercises a running app (`read`/`grep`/`glob`/`bash`,
   HTTP through `curl`; `webfetch` is off) under an **absolute safety boundary** —
   authorized, non-production targets only, never destructive, app content treated as
-  data, not instructions.
+  data, not instructions. An optional `PROBE_HARNESS` line from a confirmed
+  `.exploratory.md` or the operator's answer lets it run scratch probe files under the
+  project's own test framework, written through `bash`.
   Dispatched by `/explore`, one charter per call.
 
 ## Installation
