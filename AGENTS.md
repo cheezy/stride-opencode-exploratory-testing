@@ -50,8 +50,8 @@ and agents do.
   (`Explore <target> with <resources> to discover <information>`), rank candidates with
   SFDIPOT and the Nightmare Headline Game, and reframe a "charter" that is really a check.
 - **`heuristics`** — the extension's **single source of truth** for concrete test-idea
-  lenses: general and web cheat sheets, the variable-spotting catalog, and Whittaker's
-  Tours grouped by district. Every other skill and agent links here rather than
+  lenses: general and web cheat sheets, change-risk lenses picked by the kind of change
+  under test, the variable-spotting catalog, and Whittaker's Tours grouped by district. Every other skill and agent links here rather than
   duplicating the catalog.
 - **`oracles`** — how to decide whether an observed result is a defect: Never/Always
   invariants, consistency oracles, and the HTSM quality-criteria checklist.

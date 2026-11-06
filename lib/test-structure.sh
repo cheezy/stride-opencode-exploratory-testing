@@ -37,10 +37,16 @@
 # reference, and no CLAUDE_PLUGIN_ROOT path is used. It pins example-free agent
 # descriptions and the trimmed /explore, /pair and /harden descriptions keeping
 # their triggering conditions.
+# It pins the heuristics catalog's change-risk lenses: each in one row under
+# its General or Web sub-heading with an E.g. example and a When-a-change
+# trigger, the web-only three never under General, no Tour collision, the
+# in-app and authorized-only framing, no task-identifier or project-name
+# leak, and each named in HEURISTICS.md.
 #
 # Offline and read-only: it stats files and reads agents/*.md, commands/*.md,
-# README.md, install.sh, install.ps1 and every .md under skills/ (the
-# references/ files included) as text with grep/awk, and the JSON fixture
+# README.md, HEURISTICS.md, install.sh, install.ps1 and every .md under
+# skills/ (the references/ files included) as text with grep/awk, and the
+# JSON fixture
 # with python3 as data — it never executes their contents and never makes a
 # network call. No jq. Resolves the plugin root
 # relative to this script's own location, so it works from any CWD.
@@ -1305,6 +1311,141 @@ check_description commands/pair.md 'Pair with a human who is driving the applica
   'never dispatch the explorer' 'hand off to /debrief'
 check_description commands/harden.md 'drafted regression checks' 'persisted session sheet' 'never run' \
   'never claims a drafted check passes'
+
+# --- Change-risk lenses -----------------------------------------------------
+#
+# Twelve lenses that find bugs in what a change touches. Each sits in exactly
+# one row of a three-column table under its General or Web change-risk
+# sub-heading, with an "E.g." example and a "When a change ..." trigger. The
+# three web-only lenses never appear under General Heuristics. The Interrupt-
+# style lenses stay in-app and the HTTP ones are authorized-only. No task
+# identifier or project name leaks into the catalog, and HEURISTICS.md names
+# every lens. The .ps1 mirror carries the same checks and labels.
+printf '\nChange-risk lenses\n'
+HEUR_PAGE="${PLUGIN_ROOT}/HEURISTICS.md"
+CR_G='### General change-risk lenses'
+CR_W='### Web change-risk lenses'
+
+cr_line() { tr -d '\r' < "$HEUR" | grep -nxF -- "$1" | head -1 | cut -d: -f1; }
+
+# Rows whose first cell is exactly the bold name, between two exact headings.
+cr_rows() {
+  tr -d '\r' < "$HEUR" | awk -F'|' -v start="$1" -v stop="$2" -v cell=" **$3** " '
+    $0 == start { f = 1; next }
+    f && $0 == stop { f = 0 }
+    f && $2 == cell { print }'
+}
+
+# A row has three cells, an "E.g. " example in What to try, and a non-trivial
+# trigger that starts "When a change ".
+cr_row_ok() {
+  printf '%s\n' "$1" | awk -F'|' '
+    NF == 5 {
+      t = $3; w = $4
+      gsub(/^ +| +$/, "", t); gsub(/^ +| +$/, "", w)
+      if (index(t, "E.g. ") > 0 && w ~ /^When a change [^ ]/ && length(w) > 20) good = 1
+    }
+    END { exit good ? 0 : 1 }'
+}
+
+cr_check() { # name start-heading stop-heading label
+  cr_name="$1"; cr_count=0
+  cr_total=$(tr -d '\r' < "$HEUR" | grep -cF -- "| **${cr_name}** |")
+  cr_found=$(cr_rows "$2" "$3" "$cr_name")
+  [ -n "$cr_found" ] && cr_count=$(printf '%s\n' "$cr_found" | wc -l | tr -d ' ')
+  if [ "$cr_total" = "1" ] && [ "$cr_count" = "1" ]; then
+    ok "heuristics lists change-risk lens once, under its $4 sub-heading: ${cr_name}"
+  else
+    nope "change-risk lens is missing, duplicated or outside its $4 sub-heading: ${cr_name} (rows in file: ${cr_total}, under sub-heading: ${cr_count})"
+  fi
+  if [ "$cr_count" = "1" ] && cr_row_ok "$cr_found"; then
+    ok "change-risk lens has an E.g. example and a When-a-change trigger: ${cr_name}"
+  else
+    nope "change-risk lens lacks a three-cell row with an E.g. example and a When-a-change trigger: ${cr_name}"
+  fi
+  if grep -qF -- "- **${cr_name} Tour** —" "$HEUR" || grep -qF -- "- **${cr_name}** —" "$HEUR"; then
+    nope "change-risk lens name collides with a Tour: ${cr_name}"
+  else
+    ok "change-risk lens does not collide with a Tour: ${cr_name}"
+  fi
+  if grep -qF -- "$cr_name" "$HEUR_PAGE"; then
+    ok "HEURISTICS.md names change-risk lens: ${cr_name}"
+  else
+    nope "HEURISTICS.md does not name change-risk lens: ${cr_name}"
+  fi
+}
+
+if [ -f "$HEUR" ] && [ -f "$HEUR_PAGE" ]; then
+  L_GEN=$(cr_line '## General Heuristics'); L_CRG=$(cr_line "$CR_G")
+  L_WEB=$(cr_line '## Web Heuristics'); L_CRW=$(cr_line "$CR_W")
+  L_VAR=$(cr_line '## Variable Catalog')
+  if [ -n "$L_GEN" ] && [ -n "$L_CRG" ] && [ -n "$L_WEB" ] && [ -n "$L_CRW" ] && [ -n "$L_VAR" ] \
+      && [ "$L_GEN" -lt "$L_CRG" ] && [ "$L_CRG" -lt "$L_WEB" ] \
+      && [ "$L_WEB" -lt "$L_CRW" ] && [ "$L_CRW" -lt "$L_VAR" ]; then
+    ok "change-risk sub-headings sit inside General Heuristics and Web Heuristics, in order"
+  else
+    nope "change-risk sub-headings are missing or out of order: general=${L_CRG:-none} web=${L_CRW:-none}"
+  fi
+  CR_HEADERS=$(tr -d '\r' < "$HEUR" | grep -cxF -- '| Heuristic | What to try | When it applies |')
+  if [ "$CR_HEADERS" = "2" ]; then
+    ok "both change-risk tables carry a When it applies column"
+  else
+    nope "expected two '| Heuristic | What to try | When it applies |' table headers, found ${CR_HEADERS}"
+  fi
+  for name in 'Change the Rights' 'Shadow Decision' 'Who Else Is Watching' 'Pull the Rug' \
+      'Every Surface' 'Every Locale' 'Developer Guidebook' 'Leave No Trace' 'Telemetry Semantics'; do
+    cr_check "$name" "$CR_G" '## Web Heuristics' General
+  done
+  for name in 'Other Verbs' 'After the Headers' 'Response Hardening'; do
+    cr_check "$name" "$CR_W" '## Variable Catalog' Web
+    if tr -d '\r' < "$HEUR" \
+        | awk '$0 == "## General Heuristics" { f = 1; next } f && $0 == "## Web Heuristics" { f = 0 } f' \
+        | grep -qF -- "| **${name}** |"; then
+      nope "web-only lens listed under General Heuristics: ${name}"
+    else
+      ok "web-only lens stays out of General Heuristics: ${name}"
+    fi
+  done
+  for pair in 'After the Headers|real server' 'After the Headers|in-process test adapter' \
+      'After the Headers|in-app' 'Pull the Rug|in-app' 'Pull the Rug|test data you created' \
+      'Other Verbs|authorized testing of your own system only' \
+      'Response Hardening|authorized testing of your own system only'; do
+    name="${pair%%|*}"; needle="${pair#*|}"
+    if grep -F -- "| **${name}** |" "$HEUR" | grep -qF -- "$needle"; then
+      ok "change-risk lens ${name} says: ${needle}"
+    else
+      nope "change-risk lens is missing required framing: ${name}: ${needle}"
+    fi
+  done
+  for name in 'Pull the Rug' 'After the Headers'; do
+    if grep -F -- "| **${name}** |" "$HEUR" | grep -qiE 'kill|network'; then
+      nope "Interrupt-style change-risk lens mentions killing or the network: ${name}"
+    else
+      ok "Interrupt-style change-risk lens offers no kill or network means: ${name}"
+    fi
+  done
+  for needle in '**Pull the Rug and After the Headers share the Interrupt limits**' \
+      'Never kill the server or a process you did not start' \
+      '**Other Verbs and Response Hardening** are for authorized testing of your own system only' \
+      'start with its **change-risk lenses**' 'extends the **Guidebook Tour**'; do
+    if grep -qF -- "$needle" "$HEUR"; then
+      ok "heuristics documents: ${needle}"
+    else
+      nope "heuristics is missing change-risk wording: ${needle}"
+    fi
+  done
+  for doc in "$HEUR" "$HEUR_PAGE"; do
+    LEAKS=$(grep -cE '(^|[^A-Za-z0-9])[GWD][0-9]{3,}([^0-9]|$)' "$doc")
+    PROJECT=$(grep -ci 'kanban' "$doc")
+    if [ "$LEAKS" = "0" ] && [ "$PROJECT" = "0" ]; then
+      ok "${doc#"${PLUGIN_ROOT}"/} names no task identifier or project module"
+    else
+      nope "${doc#"${PLUGIN_ROOT}"/} leaks a task identifier or project name: identifier lines: ${LEAKS}, project lines: ${PROJECT}"
+    fi
+  done
+else
+  nope "change-risk lens checks need skills/heuristics/SKILL.md and HEURISTICS.md"
+fi
 
 printf '\nDocs and metadata\n'
 require_file "README.md"    "README"

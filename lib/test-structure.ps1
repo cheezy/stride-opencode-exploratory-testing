@@ -37,10 +37,16 @@
 # reference, and no CLAUDE_PLUGIN_ROOT path is used. It pins example-free agent
 # descriptions and the trimmed /explore, /pair and /harden descriptions keeping
 # their triggering conditions.
+# It pins the heuristics catalog's change-risk lenses: each in one row under
+# its General or Web sub-heading with an E.g. example and a When-a-change
+# trigger, the web-only three never under General, no Tour collision, the
+# in-app and authorized-only framing, no task-identifier or project-name
+# leak, and each named in HEURISTICS.md.
 #
 # Offline and read-only: it tests file existence and reads agents/*.md,
-# commands/*.md, README.md, install.sh, install.ps1 and every .md under skills/
-# (the references/ files included) as text with .NET string and regex calls,
+# commands/*.md, README.md, HEURISTICS.md, install.sh, install.ps1 and every
+# .md under skills/ (the references/ files included) as text with .NET
+# string and regex calls,
 # and the JSON fixture with ConvertFrom-Json as data — it never executes their
 # contents and never makes a network call. Resolves
 # the plugin root relative to this script's own location, so it works from
@@ -1569,6 +1575,175 @@ Test-Description 'commands/pair.md' @('Pair with a human who is driving the appl
     'never dispatch the explorer', 'hand off to /debrief')
 Test-Description 'commands/harden.md' @('drafted regression checks', 'persisted session sheet', 'never run',
     'never claims a drafted check passes')
+
+# --- Change-risk lenses -----------------------------------------------------
+#
+# Twelve lenses that find bugs in what a change touches. Each sits in exactly
+# one row of a three-column table under its General or Web change-risk
+# sub-heading, with an "E.g." example and a "When a change ..." trigger. The
+# three web-only lenses never appear under General Heuristics. The Interrupt-
+# style lenses stay in-app and the HTTP ones are authorized-only. No task
+# identifier or project name leaks into the catalog, and HEURISTICS.md names
+# every lens. Mirrors the bash section line for line: every check is per line,
+# like grep, and comparisons are ordinal and case-sensitive except the two
+# that grep runs with -i.
+Write-Host ''
+Write-Host 'Change-risk lenses'
+$HeurPage = Join-Path $PluginRoot 'HEURISTICS.md'
+$crG = '### General change-risk lenses'
+$crW = '### Web change-risk lenses'
+
+function Get-NormLines([string]$path) {
+    $text = ([IO.File]::ReadAllText($path, [Text.Encoding]::UTF8)) -replace "`r`n", "`n"
+    $lines = $text -split "`n"
+    if ($lines.Count -gt 0 -and $lines[$lines.Count - 1] -eq '') { $lines = $lines[0..($lines.Count - 2)] }
+    return ,$lines
+}
+
+# 1-based number of the first line that is exactly $exact, or 0.
+function Get-CrLine([string[]]$lines, [string]$exact) {
+    for ($i = 0; $i -lt $lines.Count; $i++) { if ($lines[$i] -ceq $exact) { return $i + 1 } }
+    return 0
+}
+
+# Rows whose first cell is exactly the bold name, between two exact headings.
+function Get-CrRows([string[]]$lines, [string]$start, [string]$stop, [string]$name) {
+    $out = New-Object 'System.Collections.Generic.List[string]'
+    $cell = " **$name** "
+    $f = $false
+    foreach ($l in $lines) {
+        if ($l -ceq $start) { $f = $true; continue }
+        if ($f -and $l -ceq $stop) { $f = $false }
+        if ($f) {
+            $parts = $l.Split('|')
+            if ($parts.Count -ge 2 -and $parts[1] -ceq $cell) { $out.Add($l) }
+        }
+    }
+    return ,$out
+}
+
+# A row has three cells, an "E.g. " example in What to try, and a non-trivial
+# trigger that starts "When a change ".
+function Test-CrRow([string]$row) {
+    $parts = $row.Split('|')
+    if ($parts.Count -ne 5) { return $false }
+    $t = $parts[2].Trim(' '); $w = $parts[3].Trim(' ')
+    return ($t.Contains('E.g. ') -and ($w -cmatch '^When a change [^ ]') -and $w.Length -gt 20)
+}
+
+function Get-LinesContaining([string[]]$lines, [string]$needle) {
+    return ,@($lines | Where-Object { $_.Contains($needle) })
+}
+
+function Test-CrLens([string[]]$heurLines, [string[]]$pageLines, [string]$heurText,
+                     [string]$name, [string]$start, [string]$stop, [string]$label) {
+    $total = (Get-LinesContaining $heurLines "| **$name** |").Count
+    $found = Get-CrRows $heurLines $start $stop $name
+    $count = $found.Count
+    if ($total -eq 1 -and $count -eq 1) {
+        Pass "heuristics lists change-risk lens once, under its $label sub-heading: $name"
+    } else {
+        Fail "change-risk lens is missing, duplicated or outside its $label sub-heading: $name (rows in file: $total, under sub-heading: $count)"
+    }
+    if ($count -eq 1 -and (Test-CrRow $found[0])) {
+        Pass "change-risk lens has an E.g. example and a When-a-change trigger: $name"
+    } else {
+        Fail "change-risk lens lacks a three-cell row with an E.g. example and a When-a-change trigger: $name"
+    }
+    if ($heurText.Contains("- **$name Tour** —") -or $heurText.Contains("- **$name** —")) {
+        Fail "change-risk lens name collides with a Tour: $name"
+    } else {
+        Pass "change-risk lens does not collide with a Tour: $name"
+    }
+    if ((Get-LinesContaining $pageLines $name).Count -gt 0) {
+        Pass "HEURISTICS.md names change-risk lens: $name"
+    } else {
+        Fail "HEURISTICS.md does not name change-risk lens: $name"
+    }
+}
+
+if ((Test-Path -LiteralPath $Heur -PathType Leaf) -and (Test-Path -LiteralPath $HeurPage -PathType Leaf)) {
+    $crLines = Get-NormLines $Heur
+    $crPage = Get-NormLines $HeurPage
+    $crText = ([IO.File]::ReadAllText($Heur, [Text.Encoding]::UTF8)) -replace "`r`n", "`n"
+    $lGen = Get-CrLine $crLines '## General Heuristics'; $lCrg = Get-CrLine $crLines $crG
+    $lWeb = Get-CrLine $crLines '## Web Heuristics'; $lCrw = Get-CrLine $crLines $crW
+    $lVar = Get-CrLine $crLines '## Variable Catalog'
+    if ($lGen -gt 0 -and $lCrg -gt 0 -and $lWeb -gt 0 -and $lCrw -gt 0 -and $lVar -gt 0 -and
+        $lGen -lt $lCrg -and $lCrg -lt $lWeb -and $lWeb -lt $lCrw -and $lCrw -lt $lVar) {
+        Pass 'change-risk sub-headings sit inside General Heuristics and Web Heuristics, in order'
+    } else {
+        $g = if ($lCrg -gt 0) { $lCrg } else { 'none' }
+        $wb = if ($lCrw -gt 0) { $lCrw } else { 'none' }
+        Fail "change-risk sub-headings are missing or out of order: general=$g web=$wb"
+    }
+    $crHeaders = @($crLines | Where-Object { $_ -ceq '| Heuristic | What to try | When it applies |' }).Count
+    if ($crHeaders -eq 2) {
+        Pass 'both change-risk tables carry a When it applies column'
+    } else {
+        Fail "expected two '| Heuristic | What to try | When it applies |' table headers, found $crHeaders"
+    }
+    foreach ($name in @('Change the Rights', 'Shadow Decision', 'Who Else Is Watching', 'Pull the Rug',
+                        'Every Surface', 'Every Locale', 'Developer Guidebook', 'Leave No Trace', 'Telemetry Semantics')) {
+        Test-CrLens $crLines $crPage $crText $name $crG '## Web Heuristics' 'General'
+    }
+    foreach ($name in @('Other Verbs', 'After the Headers', 'Response Hardening')) {
+        Test-CrLens $crLines $crPage $crText $name $crW '## Variable Catalog' 'Web'
+        $inGeneral = $false; $f = $false
+        foreach ($l in $crLines) {
+            if ($l -ceq '## General Heuristics') { $f = $true; continue }
+            if ($f -and $l -ceq '## Web Heuristics') { $f = $false }
+            if ($f -and $l.Contains("| **$name** |")) { $inGeneral = $true }
+        }
+        if ($inGeneral) {
+            Fail "web-only lens listed under General Heuristics: $name"
+        } else {
+            Pass "web-only lens stays out of General Heuristics: $name"
+        }
+    }
+    foreach ($pair in @('After the Headers|real server', 'After the Headers|in-process test adapter',
+                        'After the Headers|in-app', 'Pull the Rug|in-app', 'Pull the Rug|test data you created',
+                        'Other Verbs|authorized testing of your own system only',
+                        'Response Hardening|authorized testing of your own system only')) {
+        $name, $needle = $pair.Split('|', 2)
+        $rows = Get-LinesContaining $crLines "| **$name** |"
+        if (@($rows | Where-Object { $_.Contains($needle) }).Count -gt 0) {
+            Pass "change-risk lens $name says: $needle"
+        } else {
+            Fail "change-risk lens is missing required framing: ${name}: $needle"
+        }
+    }
+    foreach ($name in @('Pull the Rug', 'After the Headers')) {
+        $rows = Get-LinesContaining $crLines "| **$name** |"
+        if (@($rows | Where-Object { $_ -match 'kill|network' }).Count -gt 0) {
+            Fail "Interrupt-style change-risk lens mentions killing or the network: $name"
+        } else {
+            Pass "Interrupt-style change-risk lens offers no kill or network means: $name"
+        }
+    }
+    foreach ($needle in @('**Pull the Rug and After the Headers share the Interrupt limits**',
+                          'Never kill the server or a process you did not start',
+                          '**Other Verbs and Response Hardening** are for authorized testing of your own system only',
+                          'start with its **change-risk lenses**', 'extends the **Guidebook Tour**')) {
+        if ($crText.Contains($needle)) {
+            Pass "heuristics documents: $needle"
+        } else {
+            Fail "heuristics is missing change-risk wording: $needle"
+        }
+    }
+    foreach ($doc in @(@('skills/heuristics/SKILL.md', $crLines), @('HEURISTICS.md', $crPage))) {
+        $rel = $doc[0]; $lines = $doc[1]
+        $leaks = @($lines | Where-Object { $_ -cmatch '(^|[^A-Za-z0-9])[GWD][0-9]{3,}([^0-9]|$)' }).Count
+        $project = @($lines | Where-Object { $_ -match 'kanban' }).Count
+        if ($leaks -eq 0 -and $project -eq 0) {
+            Pass "$rel names no task identifier or project module"
+        } else {
+            Fail "$rel leaks a task identifier or project name: identifier lines: $leaks, project lines: $project"
+        }
+    }
+} else {
+    Fail 'change-risk lens checks need skills/heuristics/SKILL.md and HEURISTICS.md'
+}
 
 Write-Host ''
 Write-Host 'Docs and metadata'

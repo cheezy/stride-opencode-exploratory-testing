@@ -138,8 +138,9 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
   rank candidates with SFDIPOT and the Nightmare Headline Game, and reframe a
   "charter" that's really a test case.
 - **[`heuristics`](skills/heuristics/SKILL.md)** — the extension's single source of
-  truth for concrete test-idea lenses: general and web cheat sheets, a
-  variable-spotting catalog, and Whittaker's Tours grouped by tourist district.
+  truth for concrete test-idea lenses: general and web cheat sheets, change-risk
+  lenses picked by the kind of change under test, a variable-spotting catalog, and
+  Whittaker's Tours grouped by tourist district.
 - **[`oracles`](skills/oracles/SKILL.md)** — how to decide whether an observed result
   is a defect: Never/Always invariants, consistency oracles (history, comparable
   products, standards, claims, user expectations, purpose), and the HTSM
@@ -353,7 +354,7 @@ sheet, and a debrief look like when they're done well.
 ## Heuristics reference
 
 The `heuristics` skill is the canonical catalog of test-idea lenses — general and web
-cheat sheets, the variable catalog, and Whittaker's Tours. **[HEURISTICS.md](HEURISTICS.md)**
+cheat sheets, the change-risk lenses, the variable catalog, and Whittaker's Tours. **[HEURISTICS.md](HEURISTICS.md)**
 is a one-page index that points into it; it deliberately does *not* duplicate the
 tables, so there is a single source of truth to maintain.
 
