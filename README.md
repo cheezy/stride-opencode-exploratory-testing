@@ -194,8 +194,11 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
 
 - **[`charter-generator`](agents/charter-generator.md)** — turns a target (plus
   optional risk context) into a ranked list of charters via an SFDIPOT sweep,
-  charter-source mining, and the Nightmare Headline Game. Read-only; generates only,
-  never executes.
+  charter-source mining, and the Nightmare Headline Game. Handed an optional change
+  context, it charters a code change instead: each edge case gets a charter or is
+  named as covered by a unit test the change lists, the change-risk lenses whose
+  triggers match are applied, and every charter carries the surface it needs.
+  Read-only; generates only, never executes.
 - **[`explorer`](agents/explorer.md)** — runs a single budgeted session against ONE
   charter: designs probes with `heuristics`, judges results with `oracles`, records an
   SBTM session sheet, and returns structured findings (or, given
@@ -207,7 +210,8 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
   (contract `1.1`).
 
 **[`fixtures/`](fixtures/)** — worked examples of the full flow: an
-[example charter set](fixtures/example-charters.md), an
+[example charter set](fixtures/example-charters.md) (with a worked change-context
+example), an
 [example session sheet](fixtures/example-session-sheet.md), and an
 [example debrief](fixtures/example-debrief.md). They double as concrete templates and
 as regression anchors for the smoke tests.

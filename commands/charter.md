@@ -50,7 +50,7 @@ The agent has its own read-only codebase access (`read`, `grep`, `glob`) and wil
 The agent returns a **single fenced ```json document** and nothing else. Extract the first ```json fence and parse it. The parsed object has these root keys (contract owned by `agents/charter-generator.md`):
 
 - `target` (string) — the target as the agent interpreted it.
-- `charters` (array, ranked highest-risk-first, never empty) — each charter object has `rank`, `charter`, `target`, optional `resources`, `information`, `risk`, `source` (one of `requirements`, `implicit-expectation`, `stakeholder-question`, `artifact`, `nightmare-headline`, `sfdpot`), optional `lens` (only when `source: sfdpot`), and `time_box` (≤2h).
+- `charters` (array, ranked highest-risk-first, never empty) — each charter object has `rank`, `charter`, `target`, optional `resources`, `information`, `risk`, `source` (one of `requirements`, `implicit-expectation`, `stakeholder-question`, `artifact`, `nightmare-headline`, `sfdpot`, or `change-risk` — the last only in change mode, which needs a `change context` this command never passes), optional `lens` (only when `source: sfdpot`), and `time_box` (≤2h).
 - `coverage_notes` (optional string) — angles the agent deliberately skipped, splits it made, or assumptions it charted under.
 - `deprioritized` (optional array of strings) — present only when a `coverage context` was supplied *and* something was actually ranked down or dropped because prior coverage shows the ground was already explored. Distinct from `coverage_notes`; do not merge them.
 
