@@ -54,7 +54,8 @@ and agents do.
   under test, the variable-spotting catalog, and Whittaker's Tours grouped by district. Every other skill and agent links here rather than
   duplicating the catalog.
 - **`oracles`** — how to decide whether an observed result is a defect: Never/Always
-  invariants, consistency oracles, and the HTSM quality-criteria checklist.
+  invariants, consistency oracles, the Adapter Is Not the Wire and Two Decision
+  Sites oracles, and the HTSM quality-criteria checklist.
 - **`bug-advocacy`** — what to do once a result is judged a defect: RIMGEA (Replicate,
   Isolate, Maximize, Generalize, Externalize, And say it clearly), the severity rubric
   with explicit per-level criteria, and the dispassionate-tone rule.

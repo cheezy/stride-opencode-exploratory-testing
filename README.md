@@ -143,8 +143,9 @@ The end-to-end flow is **Charter → Recon → Explore → Note → Debrief.**
   Whittaker's Tours grouped by tourist district.
 - **[`oracles`](skills/oracles/SKILL.md)** — how to decide whether an observed result
   is a defect: Never/Always invariants, consistency oracles (history, comparable
-  products, standards, claims, user expectations, purpose), and the HTSM
-  quality-criteria checklist.
+  products, standards, claims, user expectations, purpose), the Adapter Is Not
+  the Wire and Two Decision Sites oracles, and the HTSM quality-criteria
+  checklist.
 - **[`bug-advocacy`](skills/bug-advocacy/SKILL.md)** — what happens once a result is
   judged a defect: Cem Kaner's RIMGEA follow-through (Replicate, Isolate, Maximize,
   Generalize, Externalize, And say it clearly), a severity rubric with explicit

@@ -6,7 +6,7 @@
 # and the top-level docs. This is a content bundle — there is intentionally
 # NO package.json / plugin.json, and this test must never look for one.
 # It also pins the explorer card in agents/explorer.md: its markers and
-# position, a 4,096-byte cap, its severity tokens against bug-advocacy's
+# position, a 4,608-byte cap, its severity tokens against bug-advocacy's
 # four levels, its stop_reason values against the output contract, and the
 # by-name form of the explorer's skill references. It pins the explorer's
 # structured safety boundary: the AUTHORIZED_NON_PRODUCTION and ALLOWED_HOSTS
@@ -42,6 +42,11 @@
 # trigger, the web-only three never under General, no Tour collision, the
 # in-app and authorized-only framing, no task-identifier or project-name
 # leak, and each named in HEURISTICS.md.
+# It pins the oracles skill's Adapter Is Not the Wire and Two Decision Sites
+# sections (each with an example, the unknown-never-found and
+# agree-in-every-state rules, no new reach, no task-identifier leak), their
+# one-line card entries, and a frozen copy of the card's severity tokens, rank
+# line and stop reasons.
 #
 # Offline and read-only: it stats files and reads agents/*.md, commands/*.md,
 # README.md, HEURISTICS.md, install.sh, install.ps1 and every .md under
@@ -145,11 +150,14 @@ if [ -f "$EXPLORER" ] && [ -f "$ADVOCACY" ]; then
   fi
 
   # Byte cap, measured exactly as: awk '/explorer-card:start/,/explorer-card:end/' | wc -c
+  # The cap is 4608. It was 4096 until the Adapter Is Not the Wire and Two
+  # Decision Sites lines took the card from 4094 to 4450 bytes, so it rose by
+  # 512. Keep new rules outside the card where they fit.
   CARD_BYTES=$(card_text | wc -c | tr -d ' ')
-  if [ "$CARD_BYTES" -ge 1 ] && [ "$CARD_BYTES" -le 4096 ]; then
-    ok "explorer card is ${CARD_BYTES} bytes (limit 4096)"
+  if [ "$CARD_BYTES" -ge 1 ] && [ "$CARD_BYTES" -le 4608 ]; then
+    ok "explorer card is ${CARD_BYTES} bytes (limit 4608)"
   else
-    nope "explorer card must be 1-4096 bytes, measured ${CARD_BYTES}"
+    nope "explorer card must be 1-4608 bytes, measured ${CARD_BYTES}"
   fi
 
   # Severity: the card's token line, rank line and ladder bullets must each
@@ -1445,6 +1453,106 @@ if [ -f "$HEUR" ] && [ -f "$HEUR_PAGE" ]; then
   done
 else
   nope "change-risk lens checks need skills/heuristics/SKILL.md and HEURISTICS.md"
+fi
+
+# --- Wire and decision-site oracles -----------------------------------------
+#
+# Two named oracles: Adapter Is Not the Wire (an in-process test adapter
+# cannot establish wire behaviour, so an unconfirmed wire claim goes under
+# debrief.unknown, never found) and Two Decision Sites (client and server
+# deciding the same thing must agree in every state). Each is a section of
+# the oracles skill with an example, and a one-line rule on the explorer card,
+# which must stay complete without the skill. The card's severity tokens, rank
+# line and six stop_reason values are also pinned to a frozen copy here, so
+# adding these lines can never change them. The .ps1 mirror carries the same
+# checks and labels.
+printf '\nWire and decision-site oracles\n'
+ORACLES="${PLUGIN_ROOT}/skills/oracles/SKILL.md"
+
+oracle_section() {
+  tr -d '\r' < "$1" | awk -v h="## $2" '$0 == h {f=1; next} f && /^## /{f=0} f{print}'
+}
+
+if [ -f "$ORACLES" ] && [ -f "$EXPLORER" ]; then
+  CARD_TEXT=$(card_text | tr -d '\r')
+  for name in 'Adapter Is Not the Wire' 'Two Decision Sites'; do
+    HEADS=$(tr -d '\r' < "$ORACLES" | grep -cxF -- "## ${name}")
+    if [ "$HEADS" = "1" ]; then
+      ok "oracles skill defines ${name}"
+    else
+      nope "oracles skill needs exactly one ## ${name} section: found ${HEADS}"
+    fi
+    if oracle_section "$ORACLES" "$name" | grep -q '^\*Example:\*'; then
+      ok "oracles skill gives ${name} an example"
+    else
+      nope "oracles skill section has no *Example:* paragraph: ${name}"
+    fi
+    CARD_LINES=$(printf '%s\n' "$CARD_TEXT" | grep -cF -- "**${name}.**")
+    if [ "$CARD_LINES" = "1" ]; then
+      ok "explorer card names ${name} in one line"
+    else
+      nope "explorer card needs exactly one **${name}.** line: found ${CARD_LINES}"
+    fi
+  done
+  WIRE_SKILL=$(oracle_section "$ORACLES" 'Adapter Is Not the Wire')
+  for needle in 'in-process test adapter' 'streamed or chunked' '`HEAD`' 'connection aborts' \
+      '`Content-Length`' 'real server' '`debrief.unknown`, never under `found`' \
+      'grants no new reach' 'does not fire'; do
+    if printf '%s\n' "$WIRE_SKILL" | grep -qF -- "$needle"; then
+      ok "Adapter Is Not the Wire says: ${needle}"
+    else
+      nope "Adapter Is Not the Wire is missing required wording: ${needle}"
+    fi
+  done
+  WIRE_CARD=$(printf '%s\n' "$CARD_TEXT" | grep -F -- '**Adapter Is Not the Wire.**')
+  for needle in 'in-process test adapter' '`HEAD`' '`Content-Length`' 'real server' \
+      '`debrief.unknown`, never `found`'; do
+    if printf '%s\n' "$WIRE_CARD" | grep -qF -- "$needle"; then
+      ok "card wire line says: ${needle}"
+    else
+      nope "card wire line is missing required wording: ${needle}"
+    fi
+  done
+  SITES_SKILL=$(oracle_section "$ORACLES" 'Two Decision Sites')
+  for needle in 'agree in every state' 'A disagreement is a finding' 'Acceptable' 'Defect'; do
+    if printf '%s\n' "$SITES_SKILL" | grep -qF -- "$needle"; then
+      ok "Two Decision Sites says: ${needle}"
+    else
+      nope "Two Decision Sites is missing required wording: ${needle}"
+    fi
+  done
+  if printf '%s\n' "$CARD_TEXT" | grep -F -- '**Two Decision Sites.**' | grep -qF -- 'agree in every state; a disagreement is a finding'; then
+    ok "card decision-sites line says both sites must agree in every state"
+  else
+    nope "card decision-sites line is missing its rule: agree in every state; a disagreement is a finding"
+  fi
+  if grep -qF -- '*Adapter Is Not the Wire* grants no new reach' "$ORACLES"; then
+    ok "oracles safety section keeps wire confirmation inside the authorized target"
+  else
+    nope "oracles safety section is missing the no-new-reach sentence"
+  fi
+  # Frozen copy of the card's severity enum and stop reasons.
+  if printf '%s\n' "$CARD_TEXT" | grep -qxF -- 'Severity tokens: `Critical` `High` `Moderate` `Minor`' \
+      && printf '%s\n' "$CARD_TEXT" | grep -qxF -- 'Severity rank: Critical > High > Moderate > Minor'; then
+    ok "explorer card keeps its severity tokens and rank line unchanged"
+  else
+    nope "explorer card's severity tokens or rank line changed"
+  fi
+  STOPS=$(printf '%s\n' "$CARD_TEXT" | sed -n 's/^- Stop `\([a-z_]*\)`:.*/\1/p' | tr '\n' ' ')
+  if [ "$STOPS" = "charter_quiet probe_budget_exhausted tool_call_ceiling risk_acceptable blocked no_observation_surface " ]; then
+    ok "explorer card keeps its six stop reasons unchanged and in order"
+  else
+    nope "explorer card's stop reasons changed: ${STOPS}"
+  fi
+  LEAKS=$(grep -cE '(^|[^A-Za-z0-9])[GWD][0-9]{3,}([^0-9]|$)' "$ORACLES")
+  PROJECT=$(grep -ci 'kanban' "$ORACLES")
+  if [ "$LEAKS" = "0" ] && [ "$PROJECT" = "0" ]; then
+    ok "skills/oracles/SKILL.md names no task identifier or project module"
+  else
+    nope "skills/oracles/SKILL.md leaks a task identifier or project name: identifier lines: ${LEAKS}, project lines: ${PROJECT}"
+  fi
+else
+  nope "wire and decision-site oracle checks need skills/oracles/SKILL.md and agents/explorer.md"
 fi
 
 printf '\nDocs and metadata\n'

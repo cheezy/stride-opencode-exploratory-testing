@@ -6,7 +6,7 @@
 # top-level docs. This is a content bundle — there is intentionally NO
 # package.json / plugin.json, and this test must never look for one.
 # It also pins the explorer card in agents/explorer.md: its markers and
-# position, a 4,096-byte cap, its severity tokens against bug-advocacy's
+# position, a 4,608-byte cap, its severity tokens against bug-advocacy's
 # four levels, its stop_reason values against the output contract, and the
 # by-name form of the explorer's skill references. It pins the explorer's
 # structured safety boundary: the AUTHORIZED_NON_PRODUCTION and ALLOWED_HOSTS
@@ -42,6 +42,11 @@
 # trigger, the web-only three never under General, no Tour collision, the
 # in-app and authorized-only framing, no task-identifier or project-name
 # leak, and each named in HEURISTICS.md.
+# It pins the oracles skill's Adapter Is Not the Wire and Two Decision Sites
+# sections (each with an example, the unknown-never-found and
+# agree-in-every-state rules, no new reach, no task-identifier leak), their
+# one-line card entries, and a frozen copy of the card's severity tokens, rank
+# line and stop reasons.
 #
 # Offline and read-only: it tests file existence and reads agents/*.md,
 # commands/*.md, README.md, HEURISTICS.md, install.sh, install.ps1 and every
@@ -176,12 +181,15 @@ if ((Test-Path -LiteralPath $Explorer -PathType Leaf) -and (Test-Path -LiteralPa
     }
 
     # Byte cap, measured as awk '/explorer-card:start/,/explorer-card:end/' | wc -c
+    # The cap is 4608. It was 4096 until the Adapter Is Not the Wire and Two
+    # Decision Sites lines took the card from 4094 to 4450 bytes, so it rose by
+    # 512. Keep new rules outside the card where they fit.
     $cardBytes = 0
     foreach ($l in $card) { $cardBytes += [Text.Encoding]::UTF8.GetByteCount($l) + 1 }
-    if ($cardBytes -ge 1 -and $cardBytes -le 4096) {
-        Pass "explorer card is $cardBytes bytes (limit 4096)"
+    if ($cardBytes -ge 1 -and $cardBytes -le 4608) {
+        Pass "explorer card is $cardBytes bytes (limit 4608)"
     } else {
-        Fail "explorer card must be 1-4096 bytes, measured $cardBytes"
+        Fail "explorer card must be 1-4608 bytes, measured $cardBytes"
     }
 
     # Severity: token line, rank line and ladder bullets each equal
@@ -1743,6 +1751,136 @@ if ((Test-Path -LiteralPath $Heur -PathType Leaf) -and (Test-Path -LiteralPath $
     }
 } else {
     Fail 'change-risk lens checks need skills/heuristics/SKILL.md and HEURISTICS.md'
+}
+
+# --- Wire and decision-site oracles -----------------------------------------
+#
+# Two named oracles: Adapter Is Not the Wire (an in-process test adapter
+# cannot establish wire behaviour, so an unconfirmed wire claim goes under
+# debrief.unknown, never found) and Two Decision Sites (client and server
+# deciding the same thing must agree in every state). Each is a section of
+# the oracles skill with an example, and a one-line rule on the explorer card,
+# which must stay complete without the skill. The card's severity tokens, rank
+# line and six stop_reason values are also pinned to a frozen copy here, so
+# adding these lines can never change them. Mirrors the bash section line for
+# line: every check is per line, like grep, and comparisons are ordinal and
+# case-sensitive except the one that grep runs with -i.
+Write-Host ''
+Write-Host 'Wire and decision-site oracles'
+$OraclesMd = Join-Path $PluginRoot 'skills/oracles/SKILL.md'
+
+# Lines under an exact "## <name>" heading, up to the next "## " heading.
+function Get-OracleSection([string[]]$lines, [string]$name) {
+    $out = New-Object 'System.Collections.Generic.List[string]'
+    $in = $false
+    foreach ($l in $lines) {
+        if ($l -ceq "## $name") { $in = $true; continue }
+        if ($in -and $l.StartsWith('## ', [StringComparison]::Ordinal)) { $in = $false }
+        if ($in) { $out.Add($l) }
+    }
+    return ,$out
+}
+
+function Get-CountContaining([string[]]$lines, [string]$needle) {
+    return @($lines | Where-Object { $_.Contains($needle) }).Count
+}
+
+if ((Test-Path -LiteralPath $OraclesMd -PathType Leaf) -and (Test-Path -LiteralPath $Explorer -PathType Leaf)) {
+    $orLines = Get-NormLines $OraclesMd
+    $orText = [IO.File]::ReadAllText($OraclesMd, [Text.Encoding]::UTF8)
+    $wxLines = Get-NormLines $Explorer
+    # The card, start marker to end marker, only when there is exactly one of each.
+    $cardLines = New-Object 'System.Collections.Generic.List[string]'
+    $starts = @(0..($wxLines.Count - 1) | Where-Object { $wxLines[$_].Contains('explorer-card:start') })
+    $ends = @(0..($wxLines.Count - 1) | Where-Object { $wxLines[$_].Contains('explorer-card:end') })
+    if ($starts.Count -eq 1 -and $ends.Count -eq 1 -and $starts[0] -lt $ends[0]) {
+        for ($i = $starts[0]; $i -le $ends[0]; $i++) { $cardLines.Add($wxLines[$i]) }
+    }
+    foreach ($name in 'Adapter Is Not the Wire', 'Two Decision Sites') {
+        $heads = @($orLines | Where-Object { $_ -ceq "## $name" }).Count
+        if ($heads -eq 1) {
+            Pass "oracles skill defines $name"
+        } else {
+            Fail "oracles skill needs exactly one ## $name section: found $heads"
+        }
+        $section = Get-OracleSection $orLines $name
+        if (@($section | Where-Object { $_.StartsWith('*Example:*', [StringComparison]::Ordinal) }).Count -gt 0) {
+            Pass "oracles skill gives $name an example"
+        } else {
+            Fail "oracles skill section has no *Example:* paragraph: $name"
+        }
+        $cardCount = Get-CountContaining $cardLines "**$name.**"
+        if ($cardCount -eq 1) {
+            Pass "explorer card names $name in one line"
+        } else {
+            Fail "explorer card needs exactly one **$name.** line: found $cardCount"
+        }
+    }
+    $wireSkill = Get-OracleSection $orLines 'Adapter Is Not the Wire'
+    foreach ($needle in @('in-process test adapter', 'streamed or chunked', '`HEAD`', 'connection aborts',
+                          '`Content-Length`', 'real server', '`debrief.unknown`, never under `found`',
+                          'grants no new reach', 'does not fire')) {
+        if ((Get-CountContaining $wireSkill $needle) -gt 0) {
+            Pass "Adapter Is Not the Wire says: $needle"
+        } else {
+            Fail "Adapter Is Not the Wire is missing required wording: $needle"
+        }
+    }
+    $wireCard = @($cardLines | Where-Object { $_.Contains('**Adapter Is Not the Wire.**') })
+    foreach ($needle in @('in-process test adapter', '`HEAD`', '`Content-Length`', 'real server',
+                          '`debrief.unknown`, never `found`')) {
+        if ((Get-CountContaining $wireCard $needle) -gt 0) {
+            Pass "card wire line says: $needle"
+        } else {
+            Fail "card wire line is missing required wording: $needle"
+        }
+    }
+    $sitesSkill = Get-OracleSection $orLines 'Two Decision Sites'
+    foreach ($needle in @('agree in every state', 'A disagreement is a finding', 'Acceptable', 'Defect')) {
+        if ((Get-CountContaining $sitesSkill $needle) -gt 0) {
+            Pass "Two Decision Sites says: $needle"
+        } else {
+            Fail "Two Decision Sites is missing required wording: $needle"
+        }
+    }
+    $sitesCard = @($cardLines | Where-Object { $_.Contains('**Two Decision Sites.**') })
+    if ((Get-CountContaining $sitesCard 'agree in every state; a disagreement is a finding') -gt 0) {
+        Pass 'card decision-sites line says both sites must agree in every state'
+    } else {
+        Fail 'card decision-sites line is missing its rule: agree in every state; a disagreement is a finding'
+    }
+    if ($orText.Contains('*Adapter Is Not the Wire* grants no new reach')) {
+        Pass 'oracles safety section keeps wire confirmation inside the authorized target'
+    } else {
+        Fail 'oracles safety section is missing the no-new-reach sentence'
+    }
+    # Frozen copy of the card's severity enum and stop reasons.
+    $tokensKept = @($cardLines | Where-Object { $_ -ceq 'Severity tokens: `Critical` `High` `Moderate` `Minor`' }).Count -gt 0
+    $rankKept = @($cardLines | Where-Object { $_ -ceq 'Severity rank: Critical > High > Moderate > Minor' }).Count -gt 0
+    if ($tokensKept -and $rankKept) {
+        Pass 'explorer card keeps its severity tokens and rank line unchanged'
+    } else {
+        Fail "explorer card's severity tokens or rank line changed"
+    }
+    $stops = ''
+    foreach ($l in $cardLines) {
+        $m = [regex]::Match($l, '^- Stop `([a-z_]*)`:')
+        if ($m.Success) { $stops += $m.Groups[1].Value + ' ' }
+    }
+    if ($stops -ceq 'charter_quiet probe_budget_exhausted tool_call_ceiling risk_acceptable blocked no_observation_surface ') {
+        Pass 'explorer card keeps its six stop reasons unchanged and in order'
+    } else {
+        Fail "explorer card's stop reasons changed: $stops"
+    }
+    $leaks = @($orLines | Where-Object { $_ -cmatch '(^|[^A-Za-z0-9])[GWD][0-9]{3,}([^0-9]|$)' }).Count
+    $project = @($orLines | Where-Object { $_ -match 'kanban' }).Count
+    if ($leaks -eq 0 -and $project -eq 0) {
+        Pass 'skills/oracles/SKILL.md names no task identifier or project module'
+    } else {
+        Fail "skills/oracles/SKILL.md leaks a task identifier or project name: identifier lines: $leaks, project lines: $project"
+    }
+} else {
+    Fail 'wire and decision-site oracle checks need skills/oracles/SKILL.md and agents/explorer.md'
 }
 
 Write-Host ''
